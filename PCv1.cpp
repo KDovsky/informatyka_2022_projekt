@@ -1,9 +1,12 @@
+#define _CRT_SECURE_NO_WARNINGS
 #include <iostream>
 #include <SFML/Graphics.hpp>
 #include <ctime>
 #include <cstdlib>
 #include <stack>
 #include <vector>
+
+
 
 
 struct wspolrzedne {
@@ -15,6 +18,23 @@ struct statystyki {
 	int zycie;
 	int punkty;
 	int moc;
+};
+
+struct daneZapis {
+	int rozmiar;
+	bool*** polaKrawedzie;
+
+	int* ostatni_przeciwnik;
+	int* pozycje_przeciwnik_x;
+	int* pozycje_przeciwnik_y;
+	
+	int* pozycje_punkty_x;
+	int* pozycje_punkty_y;
+	bool* wyswietlanie_punkty;
+
+	int pozycja_gracz_x;
+	int pozycja_gracz_y;
+	statystyki staty;
 };
 
 bool czyBylaWylosowana(int wylosowana, int tab[], int ile) {
@@ -34,35 +54,50 @@ bool czyBylaWylosowana(int wylosowana, int tab[], int ile) {
 
 }
 
+class mySprite :public sf::Sprite {
+private:
+	bool czyWyswietlic = true;
+public:
+	void nieWyswietlajBool();
+	void wyswietlaj();
+	bool czyWyswietlac();
+};
+
+void mySprite::nieWyswietlajBool() {
+	this->czyWyswietlic = false;
+}
+
+void mySprite::wyswietlaj() {
+	this->czyWyswietlic = true;
+}
+
+bool mySprite::czyWyswietlac() {
+	return this->czyWyswietlic;
+}
+
+
+
 class Plansza {
 private:
 	int rozmiar;
-	int** stan_pola;
 	bool** pola;
 	bool*** pola_krawedzie;
 	sf::RectangleShape*** krawedzie;
 	sf::Vector2f rozmiarokna;
 public:
 	Plansza(int jakduza,sf::Vector2f _rozmiarokna);
-	Plansza() {};
 	~Plansza();
 	void losuj_labirynt();
 	void rysuj_labirynt(sf::RenderWindow* wind);
+	void setZapis(bool*** polaKrawedzie);
+	int getrozmiar();
 	bool*** getPolaKrawedzie();
-	int** getStan_Pola();
+	
 };
 
 Plansza::Plansza(int jakduza,sf::Vector2f _rozmiarokna) {
 	this->rozmiar = jakduza;
 	
-
-	int** tymp = new int* [jakduza];
-
-	for (int i = 0; i < jakduza; i++) {
-		tymp[i] = new int[jakduza];
-	}
-
-	this->stan_pola = tymp;
 	
 	
 	bool** temp = new bool* [jakduza];
@@ -104,6 +139,8 @@ Plansza::Plansza(int jakduza,sf::Vector2f _rozmiarokna) {
 		}
 	}
 	
+	
+
 }
 
 void Plansza::losuj_labirynt() {
@@ -270,12 +307,16 @@ void Plansza::rysuj_labirynt(sf::RenderWindow* wind) {
 
 }
 
+void Plansza::setZapis(bool***polaKrawedzie) {
+	this->pola_krawedzie = polaKrawedzie;
+}
+
 bool*** Plansza::getPolaKrawedzie() {
 	return this->pola_krawedzie;
 }
 
-int** Plansza::getStan_Pola() {
-	return this->stan_pola;
+int Plansza::getrozmiar() {
+	return this->rozmiar;
 }
 
 Plansza::~Plansza() {
@@ -299,7 +340,7 @@ private:
 	int rozmiarlabiryntu;
 public:
 	Interfejs(int _rozmlab, sf::Vector2f _rozmiarokna);
-	Interfejs() {};
+	
 	void init();
 	void in_staty(statystyki* staty);
 	void rysuj(sf::RenderWindow* wind);
@@ -379,12 +420,14 @@ private:
 	bool*** pola_krawedzie;
 public:
 	Gracz(int rozmiar_labiryntu,bool ***pk);
-	Gracz() {};
 	void init();
 	void rysuj(sf::RenderWindow* wind);
 	void przesun(sf::Event event,sf::Clock* zegar);
 	void ustawtxt(sf::Event event);
 	void supermoc(sf::Event event,sf::Clock*zegar);
+	void kolizje(mySprite*punkty,mySprite*przeciwnicy);
+	void getZapis(float* pozycja_gracz_x, float* pozycja_gracz_y, int* moc, int* pkt, int* hp);
+	void setZapis(float pozycja_gracz_x, float pozycja_gracz_y, int moc, int pkt, int hp);
 	statystyki* getstaty();
 };
 
@@ -439,7 +482,7 @@ void Gracz::przesun(sf::Event event,sf::Clock *zegar) {
 				x = ((sprite->getPosition().x - (700 - 0.5 * rozmiar * 25)) / 25);//okreslenie wspolrzednej x aktualnej kratki w labiryncie
 				y = ((sprite->getPosition().y - (425 - 0.5 * rozmiar * 25)) / 25);//okreslenie wspolrzednej y aktualnej kratki w labiryncie
 
-				if (pola_krawedzie[y][x][1] == false && pos_wkratce_y % 25 < 10) {//jezeli nie ma krawedzi z prawej strony oraz jest odpowiednia pozycja do ruchu w prawo
+				if (pola_krawedzie[y][x][1] == false && pos_wkratce_y % 25 <= 10) {//jezeli nie ma krawedzi z prawej strony oraz jest odpowiednia pozycja do ruchu w prawo
 					ksztalt_tekstury->left += 48;
 					if (ksztalt_tekstury->left > 258) {
 						ksztalt_tekstury->left = 16;
@@ -450,7 +493,7 @@ void Gracz::przesun(sf::Event event,sf::Clock *zegar) {
 
 					zegar->restart();//ruch + przesuniecie tekstury - animacja ruchu + reset zegara, aby bylo ograniczenie czasowe wykonania jednego ruchu
 				}
-				else if (pola_krawedzie[y][x][1] == true && (pos_wkratce_y % 25 < 10 && pos_wkratce_x % 25 < 10)) {//jezeli jest krawedz z prawej strony oraz jest odpowiednia pozycja do ruchu w prawo
+				else if (pola_krawedzie[y][x][1] == true && (pos_wkratce_y % 25 <= 10 && pos_wkratce_x % 25 <= 10)) {//jezeli jest krawedz z prawej strony oraz jest odpowiednia pozycja do ruchu w prawo
 					ksztalt_tekstury->left += 48;
 					if (ksztalt_tekstury->left > 258) {
 						ksztalt_tekstury->left = 16;
@@ -468,7 +511,7 @@ void Gracz::przesun(sf::Event event,sf::Clock *zegar) {
 				x = ((sprite->getPosition().x - (700 - 0.5 * rozmiar * 25)) / 25);
 				y = ((sprite->getPosition().y - (425 - 0.5 * rozmiar * 25)) / 25);
 
-				if (pola_krawedzie[y][x][3] == false && pos_wkratce_y % 25 < 10) {
+				if (pola_krawedzie[y][x][3] == false && pos_wkratce_y % 25 <= 10) {
 					ksztalt_tekstury->left += 48;
 					if (ksztalt_tekstury->left > 258) {
 						ksztalt_tekstury->left = 16;
@@ -479,7 +522,7 @@ void Gracz::przesun(sf::Event event,sf::Clock *zegar) {
 					zegar->restart();
 					
 				}
-				else if (pola_krawedzie[y][x][3] == true && (pos_wkratce_y % 25 < 10 &&pos_wkratce_x % 25 > 0)) {
+				else if (pola_krawedzie[y][x][3] == true && (pos_wkratce_y % 25 <= 10 &&pos_wkratce_x % 25 > 0)) {
 					//std::cout << x << " " << y << " ";
 					ksztalt_tekstury->left += 48;
 					if (ksztalt_tekstury->left > 258) {
@@ -497,7 +540,7 @@ void Gracz::przesun(sf::Event event,sf::Clock *zegar) {
 				x = ((sprite->getPosition().x - (700 - 0.5 * rozmiar * 25)) / 25);
 				y = ((sprite->getPosition().y - (425 - 0.5 * rozmiar * 25)) / 25);
 
-				if (pola_krawedzie[y][x][0] == false && pos_wkratce_x % 25 < 10) {
+				if (pola_krawedzie[y][x][0] == false && pos_wkratce_x % 25 <= 10) {
 					//std::cout << x << " " << y << " ";
 					ksztalt_tekstury->left += 48;
 					if (ksztalt_tekstury->left > 258) {
@@ -509,7 +552,7 @@ void Gracz::przesun(sf::Event event,sf::Clock *zegar) {
 					zegar->restart();
 				}
 
-				else if (pola_krawedzie[y][x][0] == true && (pos_wkratce_x % 25 < 10 && pos_wkratce_y % 25 > 0)) {
+				else if (pola_krawedzie[y][x][0] == true && (pos_wkratce_x % 25 <= 10 && pos_wkratce_y % 25 > 0)) {
 
 					ksztalt_tekstury->left += 48;
 					if (ksztalt_tekstury->left > 258) {
@@ -528,7 +571,7 @@ void Gracz::przesun(sf::Event event,sf::Clock *zegar) {
 
 				//std::cout << " x- " << x << " xpos- " << sprite->getPosition().x << " y- " << y << " ypos - " << sprite->getPosition().y << " tr - " << pos_wkratce_x % 25 << " "<<pos_wkratce_y % 25;
 
-				if (pola_krawedzie[y][x][2] == false && pos_wkratce_x % 25 < 10) {
+				if (pola_krawedzie[y][x][2] == false && pos_wkratce_x % 25 <= 10) {
 					ksztalt_tekstury->left += 48;
 					if (ksztalt_tekstury->left > 258) {
 						ksztalt_tekstury->left = 16;
@@ -539,7 +582,7 @@ void Gracz::przesun(sf::Event event,sf::Clock *zegar) {
 					zegar->restart();
 				}
 
-				else if (pola_krawedzie[y][x][2] == true && (pos_wkratce_x % 25 < 10 && pos_wkratce_y % 25 > 10)) {
+				else if (pola_krawedzie[y][x][2] == true && (pos_wkratce_x % 25 <= 10 && pos_wkratce_y % 25 <= 6)) {
 
 					ksztalt_tekstury->left += 48;
 					if (ksztalt_tekstury->left > 258) {
@@ -629,27 +672,67 @@ void Gracz::rysuj(sf::RenderWindow* wind) {
 	wind->draw(*sprite);
 }
 
+void Gracz::kolizje(mySprite* punkty,mySprite* przeciwnicy) {
+	for (int i = 0; i < this->rozmiar; i++) {
+		if (punkty[i].czyWyswietlac() == true) {
+			if (abs(punkty[i].getPosition().x - sprite->getPosition().x) < 12 && abs(punkty[i].getPosition().y - sprite->getPosition().y) < 12) {
+				punkty[i].nieWyswietlajBool();
+				this->staty->punkty++;
+			}
+		}
+	}
+	for (int i = 0; i < 3; i++) {
+		if (przeciwnicy[i].czyWyswietlac() == true) {
+			if (abs(przeciwnicy[i].getPosition().x - sprite->getPosition().x) < 12 && abs(przeciwnicy[i].getPosition().y - sprite->getPosition().y) < 12) {
+				staty->zycie--;
+				przeciwnicy[i].nieWyswietlajBool();
+			}
+		}
+	}
+
+
+}
+
+void Gracz::getZapis(float* pozycja_gracz_x, float* pozycja_gracz_y, int* moc, int* pkt, int* hp) {
+	*pozycja_gracz_x = this->sprite->getPosition().x;
+	*pozycja_gracz_y = this->sprite->getPosition().y;
+	
+	*moc = this->getstaty()->moc;
+	*hp = this->getstaty()->zycie;
+	*pkt = this->getstaty()->punkty;
+}
+
+void Gracz::setZapis(float pozycja_gracz_x, float pozycja_gracz_y, int moc,int pkt,int hp) {
+	this->staty->moc = moc;
+	this->staty->punkty = pkt;
+	this->staty->zycie = hp;
+	this->sprite->setPosition(sf::Vector2f(pozycja_gracz_x, pozycja_gracz_y));
+}
+
 
 class Punkty {
 private:
 	int rozmiar;
-	sf::Sprite* sprites;
-	wspolrzedne* pozycje;
+	mySprite* sprites;
 	sf::Texture* tekstura;
 	sf::IntRect* ksztalt_tekstury;
 public:
 	Punkty(int rozmiar_lab);
 	void init();
-	void ustaw(int**stan_pola);
+	void ustaw();
 	void rysuj(sf::RenderWindow* wind);
+	void czyUstawZnowu();
+	void getZapis(float* pozycje_punkty_x, float* pozycje_punkty_y, bool* wyswietlanie_punkty,int rozm);
+	void setZapis(float* pozycje_punkty_x, float* pozycje_punkty_y, bool* wyswietlanie_punkty);
+	mySprite* getSprites();
 };
 
 Punkty::Punkty(int rozmiar_lab) {
 	this->rozmiar = rozmiar_lab;
-	this->sprites = new sf::Sprite[this->rozmiar];
-	this->pozycje = new wspolrzedne[this->rozmiar];
+	this->sprites = new mySprite[this->rozmiar];
 	this->tekstura = new sf::Texture;
 	this->ksztalt_tekstury = new sf::IntRect;
+	
 
 }
 
@@ -665,11 +748,11 @@ void Punkty::init() {
 		this->sprites[i].setTextureRect(*this->ksztalt_tekstury);
 		
 	}
-
-
+	
+	
 }
 
-void Punkty::ustaw(int** stan_pola) {
+void Punkty::ustaw() {
 	//LOSOWANIE BEZ POWTORZEN PAR LICZB
 	int* wylosowane_y = new int[this->rozmiar];
 	int* wylosowane_x = new int[this->rozmiar];
@@ -677,37 +760,317 @@ void Punkty::ustaw(int** stan_pola) {
 	int wylosowanych_x = 0;
 
 	do {
-		int los_y = rand() % this->rozmiar;
-		int los_x = rand() % this->rozmiar;
-		if (czyBylaWylosowana(los_x, wylosowane_x, this->rozmiar) == false || czyBylaWylosowana(los_y,wylosowane_y,this->rozmiar)==false) {
-			wylosowane_y[wylosowanych_y] = los_y;
-			wylosowane_x[wylosowanych_x] = los_x;
-			wylosowanych_x++;
-			wylosowanych_y++;
-		}
+int los_y = rand() % this->rozmiar;
+int los_x = rand() % this->rozmiar;
+if (czyBylaWylosowana(los_x, wylosowane_x, this->rozmiar) == false || czyBylaWylosowana(los_y, wylosowane_y, this->rozmiar) == false) {
+	wylosowane_y[wylosowanych_y] = los_y;
+	wylosowane_x[wylosowanych_x] = los_x;
+	wylosowanych_x++;
+	wylosowanych_y++;
+}
 	} while (wylosowanych_x < this->rozmiar);
 
 
-	//PRZYPISANIE STANU DANEGO POLA I POZYCJI W LABIRYNCIE
+	//PRZYPISANIE WYSWIETLANIA I POZYCJI W LABIRYNCIE
 	for (int i = 0; i < this->rozmiar; i++) {
-		stan_pola[wylosowane_y[i]][wylosowane_x[i]] = 1;
+		this->sprites[i].wyswietlaj();
 		this->sprites[i].setPosition(sf::Vector2f(1 + (700 - 0.5 * rozmiar * 25) + wylosowane_x[i] * 25, 6 + (425 - 0.5 * rozmiar * 25) + wylosowane_y[i] * 25));
 	}
 
-	//+IDENTYFIKATOR SPRITA W STAN_POLA
+	delete[] wylosowane_x;
+	delete[] wylosowane_y;
 
 }
 
 void Punkty::rysuj(sf::RenderWindow* wind) {
 	for (int i = 0; i < this->rozmiar; i++) {
-		wind->draw(this->sprites[i]);
+		if (this->sprites[i].czyWyswietlac() == true) {
+			wind->draw(this->sprites[i]);
+		}
 	}
 }
+
+void Punkty::czyUstawZnowu() {
+	int j = 0;
+	for (int i = 0; i < this->rozmiar; i++) {
+		if (this->sprites[i].czyWyswietlac() != false) {
+			j++;
+		}
+	}
+	if (j == 0) {
+		this->ustaw();
+	}
+}
+
+void Punkty::getZapis(float* pozycje_punkty_x, float* pozycje_punkty_y, bool* wyswietlanie_punkty,int rozm) {
+	for (int i = 0; i < rozm; i++) {
+		pozycje_punkty_x[i] = this->sprites[i].getPosition().x;
+		pozycje_punkty_y[i] = this->sprites[i].getPosition().y;
+		wyswietlanie_punkty[i] = this->sprites[i].czyWyswietlac();
+		
+	}
+}
+
+void Punkty::setZapis(float* pozycje_punkty_x, float* pozycje_punkty_y, bool* wyswietlanie_punkty) {
+	for (int i = 0; i < this->rozmiar; i++) {
+		sprites[i].setPosition(sf::Vector2f(pozycje_punkty_x[i], pozycje_punkty_y[i]));
+		if (wyswietlanie_punkty[i] == true) {
+			this->sprites[i].wyswietlaj();
+		}
+		else {
+			this->sprites[i].nieWyswietlajBool();
+		}
+	}
+}
+
+mySprite* Punkty::getSprites() {
+	return this->sprites;
+}
+
+
+
+class Przeciwnik {
+private:
+	int rozmiar;
+	int* ostatni;//ostatni ruch slima
+	bool*** pola_krawedzie;
+	mySprite* sprites;
+	sf::Texture* tekstura;
+	sf::IntRect* ksztalt_tekstury;
+public:
+	Przeciwnik(int rozmiar_lab, bool*** krawedzie);
+	void init();
+	void przesun(sf::Clock* zegar,statystyki*staty);
+	void rysuj(sf::RenderWindow* okno);
+	void kolizjePkt(mySprite* punkty);
+	void getZapis(int last[3], float poz_x[3], float poz_y[3]);
+	void setZapis(int* ostatni, float* pozycje_przeciwnik_x, float* pozycje_przeciwnik_y);
+	mySprite* getPrzeciwnicy();
+};
+
+Przeciwnik::Przeciwnik(int rozmiar_lab, bool*** krawedzie) {
+	this->rozmiar = rozmiar_lab;
+	this->sprites = new mySprite[3];
+	this->tekstura = new sf::Texture;
+	this->ksztalt_tekstury = new sf::IntRect;
+	this->pola_krawedzie = krawedzie;
+	this->ostatni = new int[3];
+}
+
+void Przeciwnik::init() {
+	this->tekstura->loadFromFile("slime.png");
+	this->ksztalt_tekstury->top = 11;
+	this->ksztalt_tekstury->left = 7;
+	this->ksztalt_tekstury->width = 17;
+	this->ksztalt_tekstury->height = 13;
+
+	this->ostatni[0] = -1;
+	this->ostatni[1] = -1;
+	this->ostatni[2] = -1;
+
+	for (int i = 0; i < 3; i++) {
+		this->sprites[i].setTexture(*this->tekstura);
+		this->sprites[i].setTextureRect(*this->ksztalt_tekstury);
+		this->sprites[i].wyswietlaj();
+	}
+
+	this->sprites[0].setPosition(sf::Vector2f(704 - 0.5 * this->rozmiar * 25, 406 + 12.5 * this->rozmiar));
+	this->sprites[1].setPosition(sf::Vector2f(679 + 12.5 * this->rozmiar, 406 + 12.5 * this->rozmiar));
+	this->sprites[2].setPosition(sf::Vector2f(679 + 12.5 * this->rozmiar, 431 - 0.5 * this->rozmiar * 25));
+
+}
+
+void Przeciwnik::przesun(sf::Clock* zegar,statystyki*staty) {
+	for (int i = 0; i < 3; i++) {
+		if (sprites[i].czyWyswietlac() == false) {
+			this->sprites[i].setPosition(sf::Vector2f(679 + 12.5 * this->rozmiar, 406 + 12.5 * this->rozmiar));
+			sprites[i].wyswietlaj();
+		}
+	}
+
+	float x = 1;
+	if (staty->punkty > 10) {
+		x = 0.7;
+	}
+	if (staty->punkty > 20) {
+		x = 0.4;
+	}
+	if (staty->punkty > 30) {
+		x = 0.2;
+	}
+	if (staty->punkty > 40) {
+		x = 0.1;
+	}
+	if (staty->punkty > 50) {
+		x = 0.075;
+	}
+
+
+	if (zegar->getElapsedTime().asSeconds() > x) {
+		for (int i = 0; i < 3; i++) {
+			if (this->sprites[i].czyWyswietlac() == true) {
+				std::vector<int> sasiadujace;
+				int nastepne_pole = 0;
+				float akt_y = 0;
+				float akt_x = 0;
+
+				
+				akt_y = ((sprites[i].getPosition().y)-6 - 425 + 0.5 * this->rozmiar * 25);
+				akt_x = ((sprites[i].getPosition().x)-4 - 700 + 0.5 * this->rozmiar * 25);
+				int akt_y_in = akt_y / 24;
+				int akt_x_in = akt_x / 24;
+				
+
+				//GÓRA
+				if (akt_y_in > 0 && this->pola_krawedzie[akt_y_in][akt_x_in][0] == false) {
+					if (this->ostatni[i] == 0) {
+						sasiadujace.push_back(0);
+					}
+					else {
+						for (int j = 0; j < 30; j++) {
+							sasiadujace.push_back(0);
+						}
+					}
+				}
+				//PRAWO
+				if (akt_x_in < this->rozmiar - 1 && this->pola_krawedzie[akt_y_in][akt_x_in][1]==false) {
+					if (this->ostatni[i] == 1) {
+						sasiadujace.push_back(1);
+					}
+					else {
+						for (int j = 0; j < 30; j++) {
+							sasiadujace.push_back(1);
+						}
+					}	
+				}
+				//DÓ£
+				if (akt_y_in < this->rozmiar - 1 && this->pola_krawedzie[akt_y_in][akt_x_in][2] == false) {
+					if (this->ostatni[i] == 2) {
+						sasiadujace.push_back(2);
+					}
+					else {
+						for (int j = 0; j < 30; j++) {
+							sasiadujace.push_back(2);
+						}
+					}
+				}
+				//LEWO
+				if (akt_x_in > 0 && this->pola_krawedzie[akt_y_in][akt_x_in][3] == false) {
+					if (this->ostatni[i] == 3) {
+						sasiadujace.push_back(3);
+					}
+					else {
+						for (int j = 0; j < 30; j++) {
+							sasiadujace.push_back(3);
+						}
+					}
+				}
+
+				//std::cout << " kratki : "<<akt_x_in << " " << akt_y_in << " pozycje: "<<akt_x<<" "<<akt_y;
+
+				nastepne_pole = sasiadujace[rand() % sasiadujace.size()];
+				
+				if (nastepne_pole == 0) {
+					this->ostatni[i] = 2;
+				}
+				else if (nastepne_pole == 1) {
+					this->ostatni[i] = 3;
+				}
+				else if (nastepne_pole == 2) {
+					this->ostatni[i] = 0;
+				}
+				else if (nastepne_pole == 3) {
+					this->ostatni[i] = 1;
+				}
+				
+				//std::cout << nastepne_pole << " " << this->ostatni[i] << "  next ";
+
+				switch (nastepne_pole) {
+				case 0:
+					for (int j = 0; j < 5; j++) {
+						
+						sprites[i].move(sf::Vector2f(0, -5));
+					}
+					break;
+				case 1:
+					for (int j = 0; j < 5; j++) {
+						sprites[i].move(sf::Vector2f(5, 0));
+					}
+					break;
+				case 2:
+					for (int j = 0; j < 5; j++) {
+						sprites[i].move(sf::Vector2f(0, 5));
+					}
+					break;
+				case 3:
+					for (int j = 0; j < 5; j++) {
+						sprites[i].move(sf::Vector2f(-5, 0));
+					}
+					break;
+				}
+				sasiadujace.clear();
+
+			}
+		}
+		zegar->restart();
+	}
+	
+	
+}
+
+mySprite* Przeciwnik::getPrzeciwnicy() {
+	return this->sprites;
+}
+
+void Przeciwnik::kolizjePkt(mySprite* punkty) {
+
+	for (int i = 0; i < this->rozmiar; i++) {
+		for(int j=0;j<3;j++){
+			if (punkty[i].czyWyswietlac() == true) {
+				if (abs(punkty[i].getPosition().x - sprites[j].getPosition().x) < 12 && abs(punkty[i].getPosition().y - sprites[j].getPosition().y) < 12) {
+					punkty[i].nieWyswietlajBool();
+				}
+			}
+		}
+	}
+
+}
+
+void Przeciwnik::rysuj(sf::RenderWindow* okno) {
+	for (int i = 0; i < 3; i++) {
+		if (sprites[i].czyWyswietlac() == true) {
+			okno->draw(this->sprites[i]);
+		}
+	}
+}
+
+void Przeciwnik::getZapis(int last[3], float poz_x[3], float poz_y[3]) {
+	last[0] = this->ostatni[0];
+	last[1] = this->ostatni[1];
+	last[2] = this->ostatni[2];
+	
+	
+	poz_x[0] = this->sprites[0].getPosition().x;
+	poz_x[1] = this->sprites[1].getPosition().x;
+	poz_x[2] = this->sprites[2].getPosition().x;
+	poz_y[0] = this->sprites[0].getPosition().y;
+	poz_y[1] = this->sprites[1].getPosition().y;
+	poz_y[2] = this->sprites[2].getPosition().y;
+
+	
+}
+
+void Przeciwnik::setZapis(int*ostatni, float*pozycje_przeciwnik_x, float*pozycje_przeciwnik_y) {
+	this->ostatni = ostatni;
+	/*for (int i = 0; i < 3; i++) {
+		this->sprites[i].setPosition(sf::Vector2f(pozycje_przeciwnik_x[i], pozycje_przeciwnik_y[i]));
+	}*/
+}
+
 
 
 class Menu {
 private:
-	int flaga;
 	int akt_dzialanie;
 	int x;
 	int y;
@@ -720,6 +1083,8 @@ private:
 	sf::Text* wyjscie;
 	sf::Text* kontrola;
 	sf::Text* powrot;
+	sf::Text* pomocf1;
+	sf::Text* rekordy;
 	sf::Font* czcionka;
 	sf::Sprite* glowny_bohater;
 	sf::IntRect* tekstura_bohatera;
@@ -728,20 +1093,29 @@ private:
 	Gracz* player;
 	Interfejs* interfejs;
 	Punkty* punkty;
+	Przeciwnik* przeciwnicy;
 public:
 	Menu(sf::RenderWindow* window);
 	void init();
 	void ustawTeksty();
-	void dzialanie(sf::Event event,sf::Clock *zegar);
+	void dzialanie(sf::Event event,sf::Clock *zegar,sf::Clock*zegar2);
 	void menu_main(sf::Event event, sf::Clock* zegar);
 	void nowagra(sf::Event event, sf::Clock* zegar);
-	void gra(sf::Event event, sf::Clock* zegar);
+	void gra(sf::Event event, sf::Clock* zegar,sf::Clock*zegar2);
 	void utworz_obiekty();
+	void ekranInstrukcji(sf::Event event);
+	void GameOver(sf::Event event,sf::Clock*zegar);
+	void czyGameOver(statystyki* staty);
+	void czyWyjsc(sf::Event event, sf::Clock* zegar);
+	void Zapis(sf::Clock*zegar);
+	void ZapisWyjdz(sf::Clock* zegar);
+	void wczytajGre();
+	void instrukcjaF1(sf::Event event);
+	void ranking(sf::Event event);
 	
 };
 
 Menu::Menu(sf::RenderWindow* window) {
-	this->flaga = 0;
 	this->akt_dzialanie = 0;
 	this->x = 0;
 	this->y = 1;
@@ -753,6 +1127,8 @@ Menu::Menu(sf::RenderWindow* window) {
 	this->wyjscie = new sf::Text;
 	this->kontrola = new sf::Text;
 	this->powrot = new sf::Text;
+	this->pomocf1 = new sf::Text;
+	this->rekordy = new sf::Text;
 	this->czcionka = new sf::Font;
 	this->glowny_bohater = new sf::Sprite;
 	this->tekstura_bohatera = new sf::IntRect(16, 69, 22, 22);
@@ -762,6 +1138,7 @@ Menu::Menu(sf::RenderWindow* window) {
 	this->player = new Gracz(20, mapa->getPolaKrawedzie());
 	this->interfejs = new Interfejs(20, sf::Vector2f(1024, 768));
 	this->punkty = new Punkty(20);
+	this->przeciwnicy = new Przeciwnik(20,mapa->getPolaKrawedzie());
 }
 
 void konfiguracjaPoziomowtxt(sf::Text* txt, int N, sf::Font* czcionka) {
@@ -840,9 +1217,15 @@ void Menu::ustawTeksty() {
 	powrot->setCharacterSize(20);
 	powrot->setFillColor(sf::Color::White);
 	powrot->setFont(*czcionka);
+
+	pomocf1->setPosition(sf::Vector2f(50, 740));
+	pomocf1->setString("WCISNIJ F1 ABY WYSWIETLIC POMOC");
+	pomocf1->setCharacterSize(20);
+	pomocf1->setFillColor(sf::Color::White);
+	pomocf1->setFont(*czcionka);
 }
 
-void Menu::dzialanie(sf::Event event, sf::Clock* zegar) {
+void Menu::dzialanie(sf::Event event, sf::Clock* zegar,sf::Clock*zegar2) {
 	
 	switch (this->akt_dzialanie) {
 	case 0:
@@ -852,16 +1235,36 @@ void Menu::dzialanie(sf::Event event, sf::Clock* zegar) {
 		this->nowagra(event,zegar);
 		break;
 	case 2:
-
+		this->wczytajGre();
 		break;
 	case 3:
-
+		this->ekranInstrukcji(event);
 		break;
 	case 4:
-		
+		this->okno->close();
 		break;
 	case 5:
-		this->gra(event, zegar);
+		this->gra(event, zegar, zegar2);
+		break;
+	case 6:
+		this->GameOver(event,zegar);
+		break;
+	case 7:
+		this->czyWyjsc(event, zegar);
+		break;
+	case 8:
+		this->Zapis(zegar);
+		break;
+	case 9:
+		this->ZapisWyjdz(zegar);
+		break;
+	case 10:
+		this->instrukcjaF1(event);
+		zegar2->restart();
+		zegar->restart();
+		break;
+	case 11:
+		this->ranking(event);
 		break;
 	}
 
@@ -869,6 +1272,12 @@ void Menu::dzialanie(sf::Event event, sf::Clock* zegar) {
 }
 
 void Menu::menu_main(sf::Event event, sf::Clock* zegar) {
+	sf::Text* rank = new sf::Text;
+	rank->setCharacterSize(20);
+	rank->setString("WCISNIJ F3 ABY ZOBACZYC RANKING");
+	rank->setPosition(sf::Vector2f(550, 740));
+	rank->setFont(*czcionka);
+
 	okno->draw(*glowne_tlo);
 	okno->draw(*glowny_bohater);
 	okno->draw(*tytul);
@@ -877,7 +1286,7 @@ void Menu::menu_main(sf::Event event, sf::Clock* zegar) {
 	okno->draw(*instrukcja);
 	okno->draw(*wyjscie);
 	okno->draw(*kontrola);
-
+	okno->draw(*rank);
 	sf::Text* teksty;
 	teksty = new sf::Text[4];
 
@@ -921,22 +1330,37 @@ void Menu::menu_main(sf::Event event, sf::Clock* zegar) {
 	*instrukcja = teksty[2];
 	*wyjscie = teksty[3];
 
-	if (event.type == sf::Event::KeyPressed) {
-		if (event.key.code == sf::Keyboard::RControl || event.key.code == sf::Keyboard::LControl) {
-			switch (x) {
-			case 0:
-				this->akt_dzialanie = 1;
+	if (zegar->getElapsedTime().asSeconds() > 0.3) {
+		if (event.type == sf::Event::KeyPressed) {
+			if (event.key.code == sf::Keyboard::RControl || event.key.code == sf::Keyboard::LControl) {
+				switch (x) {
+				case 0:
+					this->akt_dzialanie = 1;
+					zegar->restart();
+					break;
+				case 1:
+					this->akt_dzialanie = 2;
+					zegar->restart();
+					break;
+				case 2:
+					this->akt_dzialanie = 3;
+					zegar->restart();
+					break;
+				case 3:
+					this->akt_dzialanie = 4;
+					std::cout << ":)";
+					break;
+				}
+			}
+			if (event.key.code == sf::Keyboard::F3) {
+				this->akt_dzialanie = 11;
 				zegar->restart();
-				break;
-			case 1:
-
-				break;
 			}
 		}
 	}
 
 	
-
+	delete rank;
 	delete[] teksty;
 }
 
@@ -951,7 +1375,13 @@ void Menu::nowagra(sf::Event event, sf::Clock* zegar) {
 	poziomy = new sf::Text[11];
 	konfiguracjaPoziomowtxt(poziomy, 11, this->czcionka);
 	
-
+	sf::Text* wybor = new sf::Text;
+	wybor->setCharacterSize(35);
+	wybor->setFont(*this->czcionka);
+	wybor->setFillColor(sf::Color(60, 10, 255));
+	wybor->setPosition(sf::Vector2f(195, 250));
+	wybor->setString("WYBIERZ ROZMIAR LABIRYNTU");
+	okno->draw(*wybor);
 
 	if (zegar->getElapsedTime().asSeconds() > 0.3) {
 		if (event.type == sf::Event::KeyPressed) {
@@ -990,7 +1420,10 @@ void Menu::nowagra(sf::Event event, sf::Clock* zegar) {
 			if (event.key.code == sf::Keyboard::RControl || event.key.code == sf::Keyboard::LControl) {
 				this->x += 10;
 				this->akt_dzialanie = 5;
+				
 				this->utworz_obiekty();
+				this->x = 0;
+				this->y = 1;
 			}
 			if (event.key.code == sf::Keyboard::LAlt || event.key.code == sf::Keyboard::RAlt) {
 				this->akt_dzialanie = 0;
@@ -1005,6 +1438,7 @@ void Menu::nowagra(sf::Event event, sf::Clock* zegar) {
 	}
 
 	delete[] poziomy;
+	delete wybor;
 }
 
 void Menu::utworz_obiekty() {
@@ -1017,48 +1451,836 @@ void Menu::utworz_obiekty() {
 	interfejs->init();
 	Punkty* pkt = new Punkty(this->x);
 	pkt->init();
-	pkt->ustaw(mapa->getStan_Pola());
+	pkt->ustaw();
+	Przeciwnik* oponent = new Przeciwnik(this->x, mapa->getPolaKrawedzie());
+	oponent->init();
 
 
 	this->mapa = mapa;
 	this->player = player;
 	this->interfejs = interfejs;
 	this->punkty = pkt;
+	this->przeciwnicy = oponent;
 }
 
-void Menu::gra(sf::Event event, sf::Clock* zegar) {
-	
+void Menu::gra(sf::Event event, sf::Clock* zegar, sf::Clock* zegar2) {
+
 	
 	interfejs->rysuj(this->okno);
 	interfejs->in_staty(this->player->getstaty());
 	mapa->rysuj_labirynt(this->okno);
 	punkty->rysuj(this->okno);
+	punkty->czyUstawZnowu();
+	przeciwnicy->rysuj(this->okno);
+	przeciwnicy->przesun(zegar2,player->getstaty());
+	przeciwnicy->kolizjePkt(punkty->getSprites());
 	player->rysuj(this->okno);
 	player->ustawtxt(event);
 	player->przesun(event, zegar);
 	player->supermoc(event, zegar);
+	player->kolizje(punkty->getSprites(),przeciwnicy->getPrzeciwnicy());
+	this->czyGameOver(player->getstaty());
+	this->okno->draw(*this->powrot);
+	this->okno->draw(*this->pomocf1);
 	
+	if (zegar->getElapsedTime().asSeconds() > 0.2) {
+		if (event.type == sf::Event::KeyPressed) {
+			if (event.key.code == sf::Keyboard::LAlt || event.key.code == sf::Keyboard::RAlt) {
+				this->akt_dzialanie = 7;
+				this->x = 0;
+				this->y = 1;
+				zegar->restart();
+			}
+			if (event.key.code == sf::Keyboard::F1) {
+				this->akt_dzialanie = 10;
+				this->x = 0;
+				this->y = 0;
+				zegar->restart();
+			}
+		}
+	}
 
 }
 
+void Menu::ekranInstrukcji(sf::Event event) {
+	sf::RectangleShape* tlo = new sf::RectangleShape;
+	tlo->setSize(sf::Vector2f(1024,768));
+	tlo->setFillColor(sf::Color(50, 0, 0));
+
+	sf::Text* opis = new sf::Text;
+	opis->setFont(*this->czcionka);
+	opis->setCharacterSize(20);
+	opis->setPosition(sf::Vector2f(80, 300));
+	opis->setString("TWOIM ZADANIEM JEST ZDOBYCIE JAK NAJWIEKSZEJ LICZBY PUNKTOW.\nUNIKAJ GROZNYCH POTWOROW I ZBIERZ JAK NAJWIECEJ BRYLANTOW\n\nUZYWAJ STRZALEK ABY PORUSZAC SIE W LABIRYNCIE\nDZIEKI KLAWISZOWI END UZYJESZ ZGROMADZONEJ MOCY\nZEBY PRZEDOSTAC SIE PRZEZ SCIANY LABIRYNTU\nPORUSZAJAC SIE PO MENU UZYWAJ ALT I CTRL\nPOWODZENIA!");
+
+
+	this->okno->draw(*tlo);
+	this->okno->draw(*this->tytul);
+	this->okno->draw(*opis);
+	this->okno->draw(*this->glowny_bohater);
+	this->okno->draw(*this->powrot);
+
+	if (event.type == sf::Event::KeyPressed) {
+		if (event.key.code == sf::Keyboard::RAlt || event.key.code == sf::Keyboard::LAlt) {
+			this->akt_dzialanie = 0;
+		}
+	}
+
+
+
+	delete tlo;
+	delete opis;
+
+}
+
+void Menu::czyGameOver(statystyki* staty) {
+	if (staty->zycie == 0) {
+		this->akt_dzialanie = 6;
+	}
+}
+
+void Menu::GameOver(sf::Event event,sf::Clock*zegar) {
+	sf::Text* ranking = new sf::Text;
+	ranking->setCharacterSize(20);
+	ranking->setFont(*czcionka);
+	ranking->setString("WCISNIJ F3 ABY ZAPISAC SWOJ WYNIK");
+	ranking->setPosition(sf::Vector2f(550,740));
+
+	this->interfejs->in_staty(this->player->getstaty());
+	this->interfejs->rysuj(this->okno);
+	this->mapa->rysuj_labirynt(this->okno);
+	this->punkty->rysuj(this->okno);
+	this->przeciwnicy->rysuj(this->okno);
+	this->player->rysuj(this->okno);
+	this->okno->draw(*this->kontrola);
+	this->okno->draw(*ranking);
+	
+
+	if (event.type == sf::Event::KeyPressed) {
+		if (event.key.code == sf::Keyboard::LControl || event.key.code == sf::Keyboard::RControl) {
+			this->akt_dzialanie = 0;
+			zegar->restart();
+		}
+		if (event.key.code == sf::Keyboard::F3) {
+			sf::Text* wpisz = new sf::Text;
+			wpisz->setCharacterSize(30);
+			wpisz->setFont(*czcionka);
+			wpisz->setString("WPISZ NAZWE GRACZA W KONSOLI");
+			wpisz->setPosition(sf::Vector2f(200, 240));
+			wpisz->setFillColor(sf::Color(100, 255, 255));
+			this->okno->draw(*wpisz);
+			this->okno->display();
+
+			char* nazwa = new char[30];
+			fgets(nazwa, 30, stdin);
+			//USUNIÊCIE "\n"
+			int ts = 0;
+			while (nazwa[ts] != '\n') {
+				ts++;
+			}
+			nazwa[ts] = '\0';
+
+			int points = this->player->getstaty()->punkty;
+			int ile = 0;
+			
+
+			FILE* fp;
+			fp = fopen("ranking.txt", "r+");
+			if (fp == NULL) {
+				fp = fopen("ranking.txt", "w+");
+				fwrite(&ile, sizeof(int), 1, fp);
+				fclose(fp);
+				fp = fopen("ranking.txt", "r+");
+			}
+			fread(&ile, sizeof(int), 1, fp);
+			fclose(fp);
+			std::string spacja = " \0";
+			std::string pts = "pkt\0";
+			
+			//dopisywanie
+			if (ile < 5) {
+				fp = fopen("ranking.txt", "a+");
+				fwrite(nazwa, 30 * sizeof(char), 1, fp);
+				fwrite(&points, sizeof(int), 1, fp);
+				ile++;
+				fclose(fp);
+
+				fp = fopen("ranking.txt", "r+");
+				fwrite(&ile, sizeof(int), 1, fp);
+				fclose(fp);
+			
+			
+
+				char** nicki = new char* [ile];
+				for (int i = 0; i < ile; i++) {
+					nicki[i] = new char[30];
+				}
+				int* pkt_nicki = new int[ile];
+
+				//zapisanie do tablic
+				fp = fopen("ranking.txt", "r+");
+				fseek(fp, sizeof(int), SEEK_SET);
+				for (int i = 0; i < ile; i++) {
+					fread(nicki[i], 30 * sizeof(char), 1, fp);
+					fread(&pkt_nicki[i], sizeof(int), 1, fp);
+				}
+				fclose(fp);
+				//sortowanie wg punktów
+				if (ile > 1) {
+					for (int i = 0; i < ile; i++) {
+						for (int j = 0; j < ile - 1; j++) {
+							if (pkt_nicki[j] < pkt_nicki[j + 1]) {
+								std::swap(pkt_nicki[j], pkt_nicki[j + 1]);
+								std::swap(nicki[j], nicki[j + 1]);
+							}
+						}
+					}
+				}
+				//przypisanie do obiektów sftext
+				this->rekordy = new sf::Text[ile];
+				
+				for (int i = 0; i < ile; i++) {
+					int k = pkt_nicki[i];
+					this->rekordy[i].setString(std::to_string(i + 1) + spacja + nicki[i] + spacja + std::to_string(k) + spacja + pts);
+					this->rekordy[i].setPosition(sf::Vector2f(250, 300 + 80 * i));
+					this->rekordy[i].setFont(*this->czcionka);
+					this->rekordy[i].setCharacterSize(20);
+					
+				}
+				
+				delete[] nicki;
+				delete[] pkt_nicki;
+				
+			}
+			else {
+				//nowe zmienne ile=5
+				char** nicki = new char* [5];
+				for (int i = 0; i < 5; i++) {
+					nicki[i] = new char[30];
+				}
+				int* pkt_nicki = new int[5];
+				//odczytanie zesz³ych wyników z pliku
+				fp = fopen("ranking.txt", "r+");
+				fseek(fp, sizeof(int), SEEK_SET);
+				for (int i = 0; i < 5; i++) {
+					fread(nicki[i], 30 * sizeof(char), 1, fp);
+					fread(&pkt_nicki[i], sizeof(int), 1, fp);
+				}
+				fclose(fp);
+				//sortowanie zesz³ych wyników
+				for (int i = 0; i < 5; i++) {
+					for (int j = 0; j < 4; j++) {
+						if (pkt_nicki[j] < pkt_nicki[j + 1]) {
+							std::swap(pkt_nicki[j], pkt_nicki[j + 1]);
+							std::swap(nicki[j], nicki[j + 1]);
+						}
+					}
+				}
+				//ewentualna zamiana+zapis i ponowne posortowanie
+				if (pkt_nicki[4] < points) {
+					pkt_nicki[4] = points;
+					nicki[4] = nazwa;
+					fp = fopen("ranking.txt", "r+");
+					fseek(fp, sizeof(int), SEEK_SET);
+					for (int i = 0; i < 5; i++) {
+						fwrite(nicki[i], 30 * sizeof(char), 1, fp);
+						fwrite(&pkt_nicki[i], sizeof(int), 1, fp);
+					}
+					fclose(fp);
+				}
+				for (int i = 0; i < 5; i++) {
+					for (int j = 0; j < 4; j++) {
+						if (pkt_nicki[j] < pkt_nicki[j + 1]) {
+							std::swap(pkt_nicki[j], pkt_nicki[j + 1]);
+							std::swap(nicki[j], nicki[j + 1]);
+						}
+					}
+				}
+				//przypisanie do obiektów sftext
+				this->rekordy = new sf::Text[5];
+
+				for (int i = 0; i < 5; i++) {
+					int k = pkt_nicki[i];
+					this->rekordy[i].setString(std::to_string(i+1) + spacja + nicki[i] + spacja + std::to_string(k) + spacja + pts);
+					this->rekordy[i].setPosition(sf::Vector2f(250, 300 + 80 * i));
+					this->rekordy[i].setFont(*this->czcionka);
+					this->rekordy[i].setCharacterSize(20);
+					
+					
+				}
+				
+				
+				delete[] nicki;
+				delete[] pkt_nicki;
+				
+
+			}
+			
+			
+			this->akt_dzialanie = 0;
+			
+			
+			delete[] nazwa;
+			delete wpisz;
+		}
+	}
+
+	sf::Text* G_O = new sf::Text;
+	G_O->setString("PRZEGRALES!");
+	G_O->setCharacterSize(50);
+	G_O->setFillColor(sf::Color::Red);
+	G_O->setFont(*this->czcionka);
+	G_O->setPosition(300, 300);
+
+	this->okno->draw(*G_O);
+	delete G_O;
+	delete ranking;
+	
+}
+
+void Menu::czyWyjsc(sf::Event event, sf::Clock* zegar) {
+	this->interfejs->in_staty(this->player->getstaty());
+	this->interfejs->rysuj(this->okno);
+	this->mapa->rysuj_labirynt(this->okno);
+	this->punkty->rysuj(this->okno);
+	this->przeciwnicy->rysuj(this->okno);
+	this->player->rysuj(this->okno);
+	this->okno->draw(*this->kontrola);
+
+	sf::Text* teksty = new sf::Text[4];
+	sf::RectangleShape* obwodka = new sf::RectangleShape(sf::Vector2f(230, 140));
+
+	for (int i = 0; i < 4; i++) {
+		teksty[i].setFont(*this->czcionka);
+		teksty[i].setCharacterSize(20);
+	}
+	
+	teksty[0].setString("Wroc do gry");
+	teksty[1].setString("Zapisz gre");
+	teksty[2].setString("Zapisz i wyjdz");
+	teksty[3].setString("Wyjdz do menu");
+
+	teksty[0].setPosition(sf::Vector2f(300, 300));
+	teksty[1].setPosition(sf::Vector2f(300, 325));
+	teksty[2].setPosition(sf::Vector2f(300, 350));
+	teksty[3].setPosition(sf::Vector2f(300, 375));
+
+	obwodka->setFillColor(sf::Color::Black);
+	obwodka->setPosition(sf::Vector2f(290, 290));
+	obwodka->setOutlineThickness(3);
+	obwodka->setOutlineColor(sf::Color::White);
+
+
+	teksty[x].setCharacterSize(25);
+	teksty[x].setFillColor(sf::Color(255, 179, 179));
+	teksty[y].setCharacterSize(20);
+	teksty[y].setFillColor(sf::Color::White);
+
+
+	if (zegar->getElapsedTime().asSeconds() > 0.2) {
+		if (event.type == sf::Event::KeyPressed) {
+			if (event.key.code == sf::Keyboard::Down) {
+				y = x;
+				x++;
+				if (x == 4) {
+					x = 0;
+					y = 3;
+				}
+				zegar->restart();
+			}
+			if (event.key.code == sf::Keyboard::Up) {
+				y = x;
+				x--;
+				if (x == -1) {
+					x = 3;
+					y = 0;
+				}
+				zegar->restart();
+			}
+			
+		}
+	}
+	
+
+
+
+	if (zegar->getElapsedTime().asSeconds() > 0.2) {
+		if (event.type == sf::Event::KeyPressed) {
+			if (event.key.code == sf::Keyboard::RControl || event.key.code == sf::Keyboard::LControl) {
+				
+				switch (x) {
+				case 0:
+					this->akt_dzialanie = 5;
+					zegar->restart();
+					break;
+				case 1:
+					this->akt_dzialanie = 8;
+					zegar->restart();
+					break;
+				case 2:
+					this->akt_dzialanie = 9;
+					zegar->restart();
+					break;
+				case 3:
+					this->akt_dzialanie = 0;
+					x = 0;
+					y = 1;
+					zegar->restart();
+					break;
+				}
+
+			}
+		}
+	}
+
+
+	this->okno->draw(*obwodka);
+	for (int i = 0; i < 4; i++) {
+		this->okno->draw(teksty[i]);
+	}
+	
+
+	delete[] teksty;
+	delete obwodka;
+}
+
+void Menu::Zapis(sf::Clock*zegar) {
+	int rozm = this->mapa->getrozmiar();
+	int moc = 0;
+	int pts = 0;
+	int hp = 0;
+	if (rozm < 10) {
+		rozm = 10;
+	}
+	if (rozm > 20) {
+		rozm = 20;
+	}
+
+	//INICJALIZACJA I ZAPIS DANYCH DO NOWOUTWORZONYCH ZMIENNYCH
+
+	bool*** pola_k = new bool** [rozm];
+	for (int i = 0; i < rozm; i++) {
+		pola_k[i] = new bool* [rozm];
+		for (int j = 0; j < rozm; j++) {
+			pola_k[i][j] = new bool[4];
+		}
+	}
+	
+	for (int i = 0; i < rozm; i++) {
+		for (int j = 0; j < rozm; j++) {
+			for (int k = 0; k < 4; k++) {
+				pola_k[i][j][k] = this->mapa->getPolaKrawedzie()[i][j][k];
+			}
+		}
+	}
+	
+
+
+	int* lastprzec = new int[3];
+	float* pozprzec_x = new float[3];
+	float* pozprzec_y = new float[3];
+	this->przeciwnicy->getZapis(lastprzec, pozprzec_x, pozprzec_y);
+
+	
+	bool* wysw_pkt = new bool[rozm];
+	float* pozpkt_x = new float[rozm];
+	float* pozpkt_y = new float[rozm];
+	this->punkty->getZapis(pozpkt_x, pozpkt_y, wysw_pkt,rozm);
+
+	float pozgracz_x = 0;
+	float pozgracz_y = 0;
+	
+	this->player->getZapis(&pozgracz_x, &pozgracz_y, &moc, &pts, &hp);
+	
+	//ZAPIS DO PLIKU
+
+	FILE* fp;
+	fp = fopen("zapis.txt", "w+"); 
+	if (fp == NULL) {
+		std::cout << "PROBLEM Z UTWORZENIEM ZAPISU";
+	}
+	if (fp) {
+		fwrite(&rozm, sizeof(int), 1, fp);
+		
+		for (int i = 0; i < rozm; i++) {
+			for (int j = 0; j < rozm; j++) {
+				for (int k = 0; k < 4; k++) {
+					fwrite(&pola_k[i][j][k], sizeof(bool), 1, fp);
+				}
+			}
+		}
+		
+		fwrite(lastprzec, 3*sizeof(int), 1, fp);
+		
+
+		
+		fwrite(pozprzec_x, 3*sizeof(float), 1, fp);
+		fwrite(pozprzec_y, 3*sizeof(float), 1, fp);
+
+		fwrite(wysw_pkt, rozm*sizeof(bool), 1, fp);
+		fwrite(pozpkt_x, rozm*sizeof(float), 1, fp);
+		fwrite(pozpkt_y, rozm*sizeof(float), 1, fp);
+		//std::cout << pozgracz_x << " " << pozgracz_y;
+		fwrite(&pozgracz_x, sizeof(float), 1, fp);
+		fwrite(&pozgracz_y, sizeof(float), 1, fp);
+		fwrite(&moc, sizeof(int), 1, fp);
+		fwrite(&pts, sizeof(int), 1, fp);
+		fwrite(&hp, sizeof(int), 1, fp);
+		
+		
+		
+		fclose(fp);
+	}
+	
+
+	
+	//POWROT DO MENU IN GAME
+	this->akt_dzialanie = 7;
+	this->x = 0;
+	this->y = 1;
+	zegar->restart();
+}
+
+void Menu::ZapisWyjdz(sf::Clock* zegar) {
+	int rozm = this->mapa->getrozmiar();
+	int moc = 0;
+	int pts = 0;
+	int hp = 0;
+	if (rozm < 10) {
+		rozm = 10;
+	}
+	if (rozm > 20) {
+		rozm = 20;
+	}
+
+	//INICJALIZACJA I ZAPIS DANYCH DO NOWOUTWORZONYCH ZMIENNYCH
+
+	bool*** pola_k = new bool** [rozm];
+	for (int i = 0; i < rozm; i++) {
+		pola_k[i] = new bool* [rozm];
+		for (int j = 0; j < rozm; j++) {
+			pola_k[i][j] = new bool[4];
+		}
+	}
+
+	for (int i = 0; i < rozm; i++) {
+		for (int j = 0; j < rozm; j++) {
+			for (int k = 0; k < 4; k++) {
+				pola_k[i][j][k] = this->mapa->getPolaKrawedzie()[i][j][k];
+			}
+		}
+	}
+
+
+
+	int* lastprzec = new int[3];
+	float* pozprzec_x = new float[3];
+	float* pozprzec_y = new float[3];
+	this->przeciwnicy->getZapis(lastprzec, pozprzec_x, pozprzec_y);
+
+
+	bool* wysw_pkt = new bool[rozm];
+	float* pozpkt_x = new float[rozm];
+	float* pozpkt_y = new float[rozm];
+	this->punkty->getZapis(pozpkt_x, pozpkt_y, wysw_pkt, rozm);
+
+	float pozgracz_x = 0;
+	float pozgracz_y = 0;
+
+	this->player->getZapis(&pozgracz_x, &pozgracz_y, &moc, &pts, &hp);
+
+	//ZAPIS DO PLIKU
+
+	FILE* fp;
+	fp = fopen("zapis.txt", "w+");
+	if (fp == NULL) {
+		std::cout << "PROBLEM Z UTWORZENIEM ZAPISU";
+	}
+	if (fp) {
+		fwrite(&rozm, sizeof(int), 1, fp);
+
+		for (int i = 0; i < rozm; i++) {
+			for (int j = 0; j < rozm; j++) {
+				for (int k = 0; k < 4; k++) {
+					fwrite(&pola_k[i][j][k], sizeof(bool), 1, fp);
+				}
+			}
+		}
+
+		fwrite(lastprzec, 3 * sizeof(int), 1, fp);
+
+
+
+		fwrite(pozprzec_x, 3 * sizeof(float), 1, fp);
+		fwrite(pozprzec_y, 3 * sizeof(float), 1, fp);
+
+		fwrite(wysw_pkt, rozm * sizeof(bool), 1, fp);
+		fwrite(pozpkt_x, rozm * sizeof(float), 1, fp);
+		fwrite(pozpkt_y, rozm * sizeof(float), 1, fp);
+		//std::cout << pozgracz_x << " " << pozgracz_y;
+		fwrite(&pozgracz_x, sizeof(float), 1, fp);
+		fwrite(&pozgracz_y, sizeof(float), 1, fp);
+		fwrite(&moc, sizeof(int), 1, fp);
+		fwrite(&pts, sizeof(int), 1, fp);
+		fwrite(&hp, sizeof(int), 1, fp);
+
+
+
+		fclose(fp);
+	}
+
+
+
+	//POWROT DO MENU MAIN
+	this->akt_dzialanie = 0;
+	this->x = 0;
+	this->y = 1;
+	zegar->restart();
+}
+
+void Menu::wczytajGre() {
+	int rozm = 0;
+	int hp = 0;
+	int moc = 0;
+	int pts = 0;
+
+
+	//CZYTANIE Z PLIKU
+	FILE* fp;
+	fp = fopen("zapis.txt", "r+");
+	if (fp) {
+		//ZCZYTANIE ROZMIARU
+		fread(&rozm, sizeof(int), 1, fp);
+		if (rozm < 10) {
+			rozm = 10;
+		}
+		if (rozm > 20) {
+			rozm = 20;
+		}
+
+
+		//INICJALIZACJA ZMIENNYCH DO ZAPISU
+		bool*** pola_k = new bool** [rozm];
+		for (int i = 0; i < rozm; i++) {
+			pola_k[i] = new bool* [rozm];
+			for (int j = 0; j < rozm; j++) {
+				pola_k[i][j] = new bool[4];
+			}
+		}
+		
+
+		int* lastprzec = new int[3];
+		float* pozprzec_x = new float[3];
+		float* pozprzec_y = new float[3];
+		
+
+		bool* wysw_pkt = new bool[rozm];
+		float* pozpkt_x = new float[rozm];
+		float* pozpkt_y = new float [rozm] ;
+		
+		float pozgracz_x = 0;
+		float pozgracz_y = 0;
+		statystyki* stats = new statystyki;
+		int xda = 0;
+		
+
+		//ENDINIT
+		//ZCZYTANIE
+		for (int i = 0; i < rozm; i++) {
+			for (int j = 0; j < rozm; j++) {
+				for (int k = 0; k < 4; k++) {
+					fread(&pola_k[i][j][k], sizeof(bool), 1, fp);
+				}
+			}
+		}
+
+
+		
+		fread(lastprzec, 3*sizeof(int), 1, fp);
+		
+
+		
+		fread(pozprzec_x, 3*sizeof(float), 1, fp);
+		fread(pozprzec_y, 3*sizeof(float), 1, fp);
+
+		fread(wysw_pkt, rozm*sizeof(bool), 1, fp);
+		fread(pozpkt_x, rozm*sizeof(float), 1, fp);
+		fread(pozpkt_y, rozm*sizeof(float), 1, fp);
+
+		fread(&pozgracz_x, sizeof(float), 1, fp);
+		fread(&pozgracz_y, sizeof(float), 1, fp);
+		fread(&moc, sizeof(int), 1, fp);
+		fread(&pts, sizeof(int), 1, fp);
+		fread(&hp, sizeof(int), 1, fp);
+		
+
+		fclose(fp);
+		
+		//std::cout << " " << rozm << " " << pola_k[0][0][1] << " " << pola_k[0][0][2] << " " << lastprzec[0] << " " << lastprzec[1] << " " << lastprzec[2] << " pozycje " << pozprzec_y[1] << " " << pozpkt_x[5] << " " << pozpkt_y[2] << " pozycje gracz " << pozgracz_x << " " << pozgracz_y << " " << wysw_pkt[3] << " staty " << moc << " " << hp << " " << pts;
+		
+		//UTWORZENIE OBIEKTÓW NA PODSTAWIE DANYCH OCZYTANYCH
+		Plansza* map = new Plansza(rozm, sf::Vector2f(1024, 768));
+		map->losuj_labirynt();
+		map->setZapis(pola_k);
+		this->mapa = map;
+		bool*** mas= new bool** [4];
+		mas = this->mapa->getPolaKrawedzie();
+	
+		Interfejs* inter = new Interfejs(rozm, sf::Vector2f(1024, 768));
+		inter->init();
+		this->interfejs = inter;
+
+		Gracz* grcz = new Gracz(rozm, this->mapa->getPolaKrawedzie());
+		grcz->init();
+		grcz->setZapis(pozgracz_x, pozgracz_y, moc, pts, hp);
+		this->player = grcz;
+
+		Punkty* pkts = new Punkty(rozm);
+		pkts->init();
+		pkts->setZapis(pozpkt_x, pozpkt_y, wysw_pkt);
+		this->punkty = pkts;
+
+		Przeciwnik* przec = new Przeciwnik(rozm, this->mapa->getPolaKrawedzie());
+		przec->init();
+		przec->setZapis(lastprzec, pozprzec_x, pozprzec_y);
+		this->przeciwnicy = przec;
+		
+		//NADPISANIE OBIEKTÓW I WEJŒCIE DO PRZEBIEGU GRY
+		
+		
+	}
+	this->akt_dzialanie = 5;
+	
+}
+
+void Menu::instrukcjaF1(sf::Event event) {
+	sf::RectangleShape* tlo = new sf::RectangleShape;
+	tlo->setSize(sf::Vector2f(1024, 768));
+	tlo->setFillColor(sf::Color(50, 0, 0));
+
+	sf::Text* opis = new sf::Text;
+	opis->setFont(*this->czcionka);
+	opis->setCharacterSize(20);
+	opis->setPosition(sf::Vector2f(80, 300));
+	opis->setString("TWOIM ZADANIEM JEST ZDOBYCIE JAK NAJWIEKSZEJ LICZBY PUNKTOW.\nUNIKAJ GROZNYCH POTWOROW I ZBIERZ JAK NAJWIECEJ BRYLANTOW\n\nUZYWAJ STRZALEK ABY PORUSZAC SIE W LABIRYNCIE\nDZIEKI KLAWISZOWI END UZYJESZ ZGROMADZONEJ MOCY\nZEBY PRZEDOSTAC SIE PRZEZ SCIANY LABIRYNTU\nPORUSZAJAC SIE PO MENU UZYWAJ ALT I CTRL\nPOWODZENIA!");
+
+
+	this->okno->draw(*tlo);
+	this->okno->draw(*this->tytul);
+	this->okno->draw(*opis);
+	this->okno->draw(*this->glowny_bohater);
+	this->okno->draw(*this->powrot);
+	
+
+	if (event.type == sf::Event::KeyPressed) {
+		if (event.key.code == sf::Keyboard::RAlt || event.key.code == sf::Keyboard::LAlt) {
+			this->akt_dzialanie = 5;
+		}
+	}
+
+
+
+	delete tlo;
+	delete opis;
+}
+
+void Menu::ranking(sf::Event event) {
+	sf::RectangleShape* tlo = new sf::RectangleShape;
+	tlo->setSize(sf::Vector2f(1024, 768));
+	tlo->setFillColor(sf::Color(50, 0, 0));
+	std::string spacja = " ";
+	std::string pts = "pkt";
+	sf::Text* ranktekst = new sf::Text;
+	ranktekst->setString("RANKING");
+	ranktekst->setPosition(sf::Vector2f(300, 200));
+	ranktekst->setCharacterSize(60);
+	ranktekst->setFont(*czcionka);
+	
+
+	this->okno->draw(*tlo);
+	this->okno->draw(*tytul);
+	this->okno->draw(*ranktekst);
+	this->okno->draw(*glowny_bohater);
+	this->okno->draw(*powrot);
+	
+
+	FILE* fp;
+	fp = fopen("ranking.txt", "r+");
+	int ile = 0;
+	if (fp != NULL) {
+		fread(&ile, sizeof(int), 1, fp);
+	}
+	if (ile > 0) {
+		this->rekordy = new sf::Text[ile];
+
+		char** nicki = new char* [ile];
+		for (int i = 0; i < ile; i++) {
+			nicki[i] = new char[30];
+		}
+		int* pkt_nicki = new int[ile];
+
+		for (int i = 0; i < ile; i++) {
+			fread(nicki[i], 30 * sizeof(char), 1, fp);
+			fread(&pkt_nicki[i], sizeof(int), 1, fp);
+		}
+		fclose(fp);
+
+		for (int i = 0; i < ile; i++) {
+			for (int j = 0; j < ile - 1; j++) {
+				if (pkt_nicki[j] < pkt_nicki[j + 1]) {
+					std::swap(pkt_nicki[j], pkt_nicki[j + 1]);
+					std::swap(nicki[j], nicki[j + 1]);
+				}
+			}
+		}
+
+		for (int i = 0; i < ile; i++) {
+			int k = pkt_nicki[i];
+			this->rekordy[i].setString(std::to_string(i+1) + spacja + nicki[i] + spacja + std::to_string(k) + spacja + pts);
+			this->rekordy[i].setPosition(sf::Vector2f(250, 300 + 80 * i));
+			this->rekordy[i].setFont(*this->czcionka);
+			this->rekordy[i].setCharacterSize(50);
+			this->okno->draw(rekordy[i]);
+		}
+
+
+		delete[] nicki;
+		delete[] pkt_nicki;
+	}
+	else {
+		sf::Text* zero = new sf::Text;
+		zero->setString("NIE MA JESZCZE ZAPISANYCH WYNIKOW");
+		zero->setCharacterSize(30);
+		zero->setPosition(sf::Vector2f(160, 400));
+		zero->setFont(*this->czcionka);
+
+		this->okno->draw(*zero);
+		delete zero;
+	}
+
+	if (event.type == sf::Event::KeyPressed) {
+		if (event.key.code == sf::Keyboard::RAlt || event.key.code == sf::Keyboard::LAlt) {
+			this->akt_dzialanie = 0;
+			
+		}
+	}
+
+	
+	delete ranktekst;
+	delete tlo;
+	delete[] this->rekordy;
+}
 
 int main() {
 	srand(time(NULL));
-	sf::RenderWindow window(sf::VideoMode(1024, 768), "PACMAN MASTERS");
+	sf::RenderWindow window(sf::VideoMode(1024, 768), "PACKMAN MASTERS");
 	sf::RenderWindow* win;
 	win = &window;
 	sf::Vector2f rozmokna(1024,768);
 	sf::Clock *zegar;
 	zegar = new sf::Clock;
-
-	/*Plansza mapa(20,rozmokna);
-	mapa.losuj_labirynt();
-
-	Interfejs interfejs(20,rozmokna);
-	interfejs.init();
-
-	Gracz player(20,mapa.getPolaKrawedzie());
-	player.init();*/
+	sf::Clock* zegar2 = new sf::Clock;
+	
 
 	Menu menu(win);
 	menu.init();
@@ -1076,26 +2298,13 @@ int main() {
 
 
 		window.clear();
-	
-		/*interfejs.rysuj(win);
-		interfejs.in_staty(player.getstaty());
-		mapa.rysuj_labirynt(win);
-		player.rysuj(win);
-		player.ustawtxt(event);
-		player.przesun(event,zegar);*/
-		
 		
 
-		menu.dzialanie(event,zegar);
-
-		
+		menu.dzialanie(event,zegar,zegar2);
 		
 
 		window.display();
 	}
 	return 0;
-
-
-
 
 }

@@ -20,23 +20,7 @@ struct statystyki {
 	int moc;
 };
 
-struct daneZapis {
-	int rozmiar;
-	bool*** polaKrawedzie;
-
-	int* ostatni_przeciwnik;
-	int* pozycje_przeciwnik_x;
-	int* pozycje_przeciwnik_y;
-	
-	int* pozycje_punkty_x;
-	int* pozycje_punkty_y;
-	bool* wyswietlanie_punkty;
-
-	int pozycja_gracz_x;
-	int pozycja_gracz_y;
-	statystyki staty;
-};
-
+//sprawdza czy liczba jest juz w tablicy tab, ile - dlugosc
 bool czyBylaWylosowana(int wylosowana, int tab[], int ile) {
 	if (ile <= 0) {
 		return false;
@@ -54,16 +38,17 @@ bool czyBylaWylosowana(int wylosowana, int tab[], int ile) {
 
 }
 
-class mySprite :public sf::Sprite {
+//klasa dziedziczona po sf sprite, aby dodac zmienn¹ uzytkow¹
+class mySprite : public sf::Sprite {
 private:
 	bool czyWyswietlic = true;
 public:
-	void nieWyswietlajBool();
+	void nieWyswietlaj();
 	void wyswietlaj();
 	bool czyWyswietlac();
 };
 
-void mySprite::nieWyswietlajBool() {
+void mySprite::nieWyswietlaj() {
 	this->czyWyswietlic = false;
 }
 
@@ -76,13 +61,13 @@ bool mySprite::czyWyswietlac() {
 }
 
 
-
+//klasa planszy
 class Plansza {
 private:
 	int rozmiar;
 	bool** pola;
 	bool*** pola_krawedzie;
-	sf::RectangleShape*** krawedzie;
+	sf::RectangleShape*** krawedzie;//[y][x][góra/prawo/dó³/lewo]
 	sf::Vector2f rozmiarokna;
 public:
 	Plansza(int jakduza,sf::Vector2f _rozmiarokna);
@@ -99,7 +84,7 @@ Plansza::Plansza(int jakduza,sf::Vector2f _rozmiarokna) {
 	this->rozmiar = jakduza;
 	
 	
-	
+	//utworzenie i zainicjalizowanie tablic
 	bool** temp = new bool* [jakduza];
 
 	for (int i = 0; i < jakduza; i++) {
@@ -144,6 +129,7 @@ Plansza::Plansza(int jakduza,sf::Vector2f _rozmiarokna) {
 }
 
 void Plansza::losuj_labirynt() {
+	//zmienne u³atwiaj¹ce
 	int gora = -1, lewo = -1;
 	int dol = 1, prawo = 1;
 
@@ -294,7 +280,7 @@ void Plansza::losuj_labirynt() {
 }
 
 void Plansza::rysuj_labirynt(sf::RenderWindow* wind) {
-
+	//rysowanie krawêdzi jezeli maj¹ byæ narysowane (jezeli true)
 	for (int i = 0; i < this->rozmiar; i++) {
 		for (int j = 0; j < this->rozmiar; j++) {
 			for (int k = 0; k < 4; k++) {
@@ -326,7 +312,7 @@ Plansza::~Plansza() {
 }
 
 
-
+//klasa interfejsu/wyœwietlanie otoczenia w grze
 class Interfejs {
 private:
 	sf::RectangleShape* okno_glowne;
@@ -340,7 +326,7 @@ private:
 	int rozmiarlabiryntu;
 public:
 	Interfejs(int _rozmlab, sf::Vector2f _rozmiarokna);
-	
+	~Interfejs();
 	void init();
 	void in_staty(statystyki* staty);
 	void rysuj(sf::RenderWindow* wind);
@@ -358,20 +344,43 @@ Interfejs::Interfejs(int _rozmlab, sf::Vector2f _rozmiarokna) {
 	this->zycia_txt = new sf::Text;
 }
 
+Interfejs::~Interfejs() {
+	delete okno_glowne;
+	delete okno_labiryntu;
+	delete tytul;
+	delete punkty_txt;
+	delete moc_txt;
+	delete zycia_txt;
+	delete czcionka;
+}
+
 void Interfejs::init() {
 	czcionka->loadFromFile("ARIBL0.ttf");
+	sf::Texture* txt = new sf::Texture;
+	txt->loadFromFile("dark.jpg");
+	sf::Texture* txt2 = new sf::Texture;
+	txt2->loadFromFile("rusty.jpg");
 
 	okno_glowne->setSize(rozmiarokna);
 	okno_glowne->setFillColor(sf::Color::Blue);
+	okno_glowne->setTexture(txt2);
 	okno_labiryntu->setSize(sf::Vector2f(rozmiarlabiryntu * 25, rozmiarlabiryntu * 25));
 	okno_labiryntu->setPosition(sf::Vector2f(700 - 0.5 * rozmiarlabiryntu * 25, 425 - 0.5 * rozmiarlabiryntu * 25));
-	okno_labiryntu->setFillColor(sf::Color::Black);
+	//okno_labiryntu->setFillColor(sf::Color::Black);
+	okno_labiryntu->setFillColor(sf::Color(107, 99, 99));
+	okno_labiryntu->setTexture(txt);
+	
 
-	tytul->setPosition(sf::Vector2f(235, 10));
+	tytul->setPosition(sf::Vector2f(185, 10));
 	tytul->setString("PACKMAN MASTERS");
-	tytul->setCharacterSize(50);
-	tytul->setFillColor(sf::Color::Magenta);
+	tytul->setCharacterSize(60);
+	tytul->setFillColor(sf::Color(166, 25, 25));
+	tytul->setStyle(sf::Text::Bold);
+	tytul->setOutlineThickness(1.5);
+	tytul->setOutlineColor(sf::Color(250, 230, 230));
 	tytul->setFont(*czcionka);
+	
+	
 }
 
 void Interfejs::in_staty(statystyki *staty) {
@@ -401,15 +410,15 @@ void Interfejs::in_staty(statystyki *staty) {
 void Interfejs::rysuj(sf::RenderWindow* wind) {
 	wind->draw(*this->okno_glowne);
 	wind->draw(*this->okno_labiryntu);
-	wind->draw(*this->tytul);
 	wind->draw(*this->punkty_txt);
 	wind->draw(*this->zycia_txt);
 	wind->draw(*this->moc_txt);
+	wind->draw(*this->tytul);
 	
 }
 
 
-
+//klasa gracza
 class Gracz {
 private:
 	int rozmiar;
@@ -417,17 +426,21 @@ private:
 	statystyki* staty;
 	sf::Sprite* sprite;
 	sf::IntRect* ksztalt_tekstury;
+	sf::Font* czcionka;
 	bool*** pola_krawedzie;
 public:
 	Gracz(int rozmiar_labiryntu,bool ***pk);
+	~Gracz();
 	void init();
 	void rysuj(sf::RenderWindow* wind);
 	void przesun(sf::Event event,sf::Clock* zegar);
 	void ustawtxt(sf::Event event);
 	void supermoc(sf::Event event,sf::Clock*zegar);
-	void kolizje(mySprite*punkty,mySprite*przeciwnicy);
+	void kolizje(mySprite*punkty,mySprite*przeciwnicy, sf::RenderWindow* okno,sf::Clock*zegarAlert);
+	void deadAlert(sf::RenderWindow* okno,sf::Clock*zegar);
 	void getZapis(float* pozycja_gracz_x, float* pozycja_gracz_y, int* moc, int* pkt, int* hp);
 	void setZapis(float pozycja_gracz_x, float pozycja_gracz_y, int moc, int pkt, int hp);
+	sf::Vector2f getPozycjaGracza();
 	statystyki* getstaty();
 };
 
@@ -438,6 +451,15 @@ Gracz::Gracz(int rozmiar_labiryntu,bool***pk) {
 	rozmiar = rozmiar_labiryntu;
 	this->zwrot = 0;
 	this->pola_krawedzie = pk;
+	this->czcionka = new sf::Font;
+}
+
+Gracz::~Gracz() {
+	delete staty;
+	delete sprite;
+	delete ksztalt_tekstury;
+	delete czcionka;
+	delete* pola_krawedzie;
 }
 
 statystyki* Gracz::getstaty() {
@@ -451,7 +473,7 @@ void Gracz::init() {
 	
 	sf::Texture* tekstura = new sf::Texture;
 	
-	
+	this->czcionka->loadFromFile("ARIBL0.ttf");
 	
 	tekstura->loadFromFile("player.png");
 	if (!tekstura->loadFromFile("player.png")) {
@@ -461,8 +483,6 @@ void Gracz::init() {
 	sprite->setTexture(*tekstura);
 	
 	sprite->setPosition(sf::Vector2f(700 - 0.5 * rozmiar * 25, 425 - 0.5 * rozmiar * 25));
-
-	sprite->setScale(1, 1);
 	
 	sprite->setTextureRect(*ksztalt_tekstury);
 	
@@ -501,6 +521,11 @@ void Gracz::przesun(sf::Event event,sf::Clock *zegar) {
 					sprite->setTextureRect(*ksztalt_tekstury);
 					sprite->move(1, 0);
 					this->zwrot = 1;
+
+					//poprawa krañcowego ustawienia po prawej stronie
+					if (pos_wkratce_x % 25 == 10) {
+						sprite->move(-1, 0);
+					}
 
 					zegar->restart();//ruch + ...
 				}
@@ -672,25 +697,44 @@ void Gracz::rysuj(sf::RenderWindow* wind) {
 	wind->draw(*sprite);
 }
 
-void Gracz::kolizje(mySprite* punkty,mySprite* przeciwnicy) {
+void Gracz::kolizje(mySprite* punkty,mySprite* przeciwnicy,sf::RenderWindow*okno,sf::Clock*zegarAlert) {
+	//kolizje z punktami
 	for (int i = 0; i < this->rozmiar; i++) {
 		if (punkty[i].czyWyswietlac() == true) {
 			if (abs(punkty[i].getPosition().x - sprite->getPosition().x) < 12 && abs(punkty[i].getPosition().y - sprite->getPosition().y) < 12) {
-				punkty[i].nieWyswietlajBool();
+				punkty[i].nieWyswietlaj();
 				this->staty->punkty++;
 			}
 		}
 	}
+	//kolizje z przeciwnikami
 	for (int i = 0; i < 3; i++) {
 		if (przeciwnicy[i].czyWyswietlac() == true) {
-			if (abs(przeciwnicy[i].getPosition().x - sprite->getPosition().x) < 12 && abs(przeciwnicy[i].getPosition().y - sprite->getPosition().y) < 12) {
+			if (abs(przeciwnicy[i].getPosition().x - sprite->getPosition().x) < 14 && abs(przeciwnicy[i].getPosition().y - sprite->getPosition().y) < 14) {
 				staty->zycie--;
-				przeciwnicy[i].nieWyswietlajBool();
+				przeciwnicy[i].nieWyswietlaj();
+				zegarAlert->restart();
+				
 			}
 		}
 	}
 
+	this->deadAlert(okno, zegarAlert);
+}
 
+void Gracz::deadAlert(sf::RenderWindow* okno, sf::Clock* zegar) {
+	sf::Text* alert = new sf::Text;
+	alert->setString("UWAZAJ, STRACILES ZYCIE");
+	alert->setFont(*this->czcionka);
+	alert->setCharacterSize(40);
+	alert->setPosition(sf::Vector2f(260, 200));
+	alert->setFillColor(sf::Color::Red);
+	alert->setOutlineColor(sf::Color::White);
+	alert->setOutlineThickness(1.5);
+	if (zegar->getElapsedTime().asSeconds() < 1.5) {
+		okno->draw(*alert);
+	}
+	delete alert;
 }
 
 void Gracz::getZapis(float* pozycja_gracz_x, float* pozycja_gracz_y, int* moc, int* pkt, int* hp) {
@@ -709,7 +753,12 @@ void Gracz::setZapis(float pozycja_gracz_x, float pozycja_gracz_y, int moc,int p
 	this->sprite->setPosition(sf::Vector2f(pozycja_gracz_x, pozycja_gracz_y));
 }
 
+sf::Vector2f Gracz::getPozycjaGracza() {
+	return this->sprite->getPosition();
+}
 
+
+//klasa punktów
 class Punkty {
 private:
 	int rozmiar;
@@ -718,6 +767,7 @@ private:
 	sf::IntRect* ksztalt_tekstury;
 public:
 	Punkty(int rozmiar_lab);
+	~Punkty();
 	void init();
 	void ustaw();
 	void rysuj(sf::RenderWindow* wind);
@@ -734,6 +784,12 @@ Punkty::Punkty(int rozmiar_lab) {
 	this->ksztalt_tekstury = new sf::IntRect;
 	
 
+}
+
+Punkty::~Punkty() {
+	delete[] sprites;
+	delete tekstura;
+	delete ksztalt_tekstury;
 }
 
 void Punkty::init() {
@@ -818,7 +874,7 @@ void Punkty::setZapis(float* pozycje_punkty_x, float* pozycje_punkty_y, bool* wy
 			this->sprites[i].wyswietlaj();
 		}
 		else {
-			this->sprites[i].nieWyswietlajBool();
+			this->sprites[i].nieWyswietlaj();
 		}
 	}
 }
@@ -828,7 +884,7 @@ mySprite* Punkty::getSprites() {
 }
 
 
-
+//klasa przeciwników
 class Przeciwnik {
 private:
 	int rozmiar;
@@ -839,8 +895,9 @@ private:
 	sf::IntRect* ksztalt_tekstury;
 public:
 	Przeciwnik(int rozmiar_lab, bool*** krawedzie);
+	~Przeciwnik();
 	void init();
-	void przesun(sf::Clock* zegar,statystyki*staty);
+	void przesun(sf::Clock* zegar,statystyki*staty, sf::Vector2f poz_gracza);
 	void rysuj(sf::RenderWindow* okno);
 	void kolizjePkt(mySprite* punkty);
 	void getZapis(int last[3], float poz_x[3], float poz_y[3]);
@@ -855,6 +912,14 @@ Przeciwnik::Przeciwnik(int rozmiar_lab, bool*** krawedzie) {
 	this->ksztalt_tekstury = new sf::IntRect;
 	this->pola_krawedzie = krawedzie;
 	this->ostatni = new int[3];
+}
+
+Przeciwnik::~Przeciwnik() {
+	delete ostatni;
+	
+	delete[] sprites;
+	delete tekstura;
+	delete ksztalt_tekstury;
 }
 
 void Przeciwnik::init() {
@@ -880,14 +945,32 @@ void Przeciwnik::init() {
 
 }
 
-void Przeciwnik::przesun(sf::Clock* zegar,statystyki*staty) {
+void Przeciwnik::przesun(sf::Clock* zegar,statystyki*staty,sf::Vector2f poz_gracza) {
 	for (int i = 0; i < 3; i++) {
 		if (sprites[i].czyWyswietlac() == false) {
-			this->sprites[i].setPosition(sf::Vector2f(679 + 12.5 * this->rozmiar, 406 + 12.5 * this->rozmiar));
-			sprites[i].wyswietlaj();
+			//jezeli gracz jest w prawej dolnej cwiartce
+			if (poz_gracza.x > 700 && poz_gracza.y > 425) {
+				this->sprites[i].setPosition(sf::Vector2f(704 - 0.5 * rozmiar * 25, 431 - 0.5 * rozmiar * 25));
+				this->sprites[i].wyswietlaj();
+			}
+			//jezeli gracz jest w lewej dolnej cwiartce
+			else if (poz_gracza.x < 700 && poz_gracza.y > 425) {
+				this->sprites[i].setPosition(sf::Vector2f(679 + 12.5 * this->rozmiar, 431 - 0.5 * this->rozmiar * 25));
+				this->sprites[i].wyswietlaj();
+			}
+			//jezeli gracz jest w prawej gornej cwiartce
+			else if (poz_gracza.x > 700  && poz_gracza.y < 425) {
+				this->sprites[i].setPosition(sf::Vector2f(704 - 0.5 * this->rozmiar * 25, 406 + 12.5 * this->rozmiar));
+				this->sprites[i].wyswietlaj();
+			}
+			//else, jezeli jest w lewej gornej cwiartce
+			else {
+				this->sprites[i].setPosition(sf::Vector2f(679 + 12.5 * this->rozmiar, 406 + 12.5 * this->rozmiar));
+				sprites[i].wyswietlaj();
+			}
 		}
 	}
-
+	//delay ruchu w zaleznosci od punktów
 	float x = 1;
 	if (staty->punkty > 10) {
 		x = 0.7;
@@ -907,25 +990,31 @@ void Przeciwnik::przesun(sf::Clock* zegar,statystyki*staty) {
 
 
 	if (zegar->getElapsedTime().asSeconds() > x) {
+		//dla 3 slimów
 		for (int i = 0; i < 3; i++) {
+			//jezeli slime zyje
 			if (this->sprites[i].czyWyswietlac() == true) {
 				std::vector<int> sasiadujace;
 				int nastepne_pole = 0;
 				float akt_y = 0;
 				float akt_x = 0;
 
-				
+				//pozycja wzglêdem labiryntu
 				akt_y = ((sprites[i].getPosition().y)-6 - 425 + 0.5 * this->rozmiar * 25);
 				akt_x = ((sprites[i].getPosition().x)-4 - 700 + 0.5 * this->rozmiar * 25);
+				//nr kratki
 				int akt_y_in = akt_y / 24;
 				int akt_x_in = akt_x / 24;
 				
 
 				//GÓRA
+				//je¿eli wiersz nie jest 0 i nie ma krawêdzi u góry
 				if (akt_y_in > 0 && this->pola_krawedzie[akt_y_in][akt_x_in][0] == false) {
+					//jezeli ostatni ruch by³ w dó³ dodaj tylko jedno zero
 					if (this->ostatni[i] == 0) {
 						sasiadujace.push_back(0);
 					}
+					//jezeli nie, dodaj 30 zer
 					else {
 						for (int j = 0; j < 30; j++) {
 							sasiadujace.push_back(0);
@@ -967,9 +1056,9 @@ void Przeciwnik::przesun(sf::Clock* zegar,statystyki*staty) {
 				}
 
 				//std::cout << " kratki : "<<akt_x_in << " " << akt_y_in << " pozycje: "<<akt_x<<" "<<akt_y;
-
+				//losowanie nastêpnego pola
 				nastepne_pole = sasiadujace[rand() % sasiadujace.size()];
-				
+				//w zaleznosci od nastêpnego pola ustawiam ostatni ruch
 				if (nastepne_pole == 0) {
 					this->ostatni[i] = 2;
 				}
@@ -984,12 +1073,13 @@ void Przeciwnik::przesun(sf::Clock* zegar,statystyki*staty) {
 				}
 				
 				//std::cout << nastepne_pole << " " << this->ostatni[i] << "  next ";
-
+				//ruch w zaleznoœci od nastêpnego pola
 				switch (nastepne_pole) {
 				case 0:
-					for (int j = 0; j < 5; j++) {
+					for (int j = 0; j < 4; j++) {
 						
-						sprites[i].move(sf::Vector2f(0, -5));
+						sprites[i].move(sf::Vector2f(0, -6.25));
+						
 					}
 					break;
 				case 1:
@@ -1028,7 +1118,7 @@ void Przeciwnik::kolizjePkt(mySprite* punkty) {
 		for(int j=0;j<3;j++){
 			if (punkty[i].czyWyswietlac() == true) {
 				if (abs(punkty[i].getPosition().x - sprites[j].getPosition().x) < 12 && abs(punkty[i].getPosition().y - sprites[j].getPosition().y) < 12) {
-					punkty[i].nieWyswietlajBool();
+					punkty[i].nieWyswietlaj();
 				}
 			}
 		}
@@ -1044,7 +1134,7 @@ void Przeciwnik::rysuj(sf::RenderWindow* okno) {
 	}
 }
 
-void Przeciwnik::getZapis(int last[3], float poz_x[3], float poz_y[3]) {
+void Przeciwnik::getZapis(int *last, float *poz_x, float *poz_y) {
 	last[0] = this->ostatni[0];
 	last[1] = this->ostatni[1];
 	last[2] = this->ostatni[2];
@@ -1062,9 +1152,9 @@ void Przeciwnik::getZapis(int last[3], float poz_x[3], float poz_y[3]) {
 
 void Przeciwnik::setZapis(int*ostatni, float*pozycje_przeciwnik_x, float*pozycje_przeciwnik_y) {
 	this->ostatni = ostatni;
-	/*for (int i = 0; i < 3; i++) {
+	for (int i = 0; i < 3; i++) {
 		this->sprites[i].setPosition(sf::Vector2f(pozycje_przeciwnik_x[i], pozycje_przeciwnik_y[i]));
-	}*/
+	}
 }
 
 
@@ -1072,6 +1162,8 @@ void Przeciwnik::setZapis(int*ostatni, float*pozycje_przeciwnik_x, float*pozycje
 class Menu {
 private:
 	int akt_dzialanie;
+	int flaga_ranking;
+	int ile_ranking;
 	int x;
 	int y;
 	sf::Vector2f* rozmiar_okna;
@@ -1088,6 +1180,7 @@ private:
 	sf::Font* czcionka;
 	sf::Sprite* glowny_bohater;
 	sf::IntRect* tekstura_bohatera;
+	sf::Texture* txt_rusty;
 	sf::RenderWindow* okno;
 	Plansza* mapa;
 	Gracz* player;
@@ -1098,15 +1191,15 @@ public:
 	Menu(sf::RenderWindow* window);
 	void init();
 	void ustawTeksty();
-	void dzialanie(sf::Event event,sf::Clock *zegar,sf::Clock*zegar2);
+	void dzialanie(sf::Event event,sf::Clock *zegar,sf::Clock*zegar2,sf::Clock*zegarAlert);
 	void menu_main(sf::Event event, sf::Clock* zegar);
 	void nowagra(sf::Event event, sf::Clock* zegar);
-	void gra(sf::Event event, sf::Clock* zegar,sf::Clock*zegar2);
+	void gra(sf::Event event, sf::Clock* zegar,sf::Clock*zegar2,sf::Clock*zegarAlert);
 	void utworz_obiekty();
 	void ekranInstrukcji(sf::Event event);
 	void GameOver(sf::Event event,sf::Clock*zegar);
 	void czyGameOver(statystyki* staty);
-	void czyWyjsc(sf::Event event, sf::Clock* zegar);
+	void czyWyjsc(sf::Event event, sf::Clock* zegar, sf::Clock* zegarEnemies);
 	void Zapis(sf::Clock*zegar);
 	void ZapisWyjdz(sf::Clock* zegar);
 	void wczytajGre();
@@ -1117,6 +1210,8 @@ public:
 
 Menu::Menu(sf::RenderWindow* window) {
 	this->akt_dzialanie = 0;
+	this->flaga_ranking = 0;
+	this->ile_ranking = 0;
 	this->x = 0;
 	this->y = 1;
 	this->glowne_tlo = new sf::RectangleShape;
@@ -1130,6 +1225,7 @@ Menu::Menu(sf::RenderWindow* window) {
 	this->pomocf1 = new sf::Text;
 	this->rekordy = new sf::Text;
 	this->czcionka = new sf::Font;
+	this->txt_rusty = new sf::Texture;
 	this->glowny_bohater = new sf::Sprite;
 	this->tekstura_bohatera = new sf::IntRect(16, 69, 22, 22);
 	this->rozmiar_okna = new sf::Vector2f(1024, 768);
@@ -1142,12 +1238,15 @@ Menu::Menu(sf::RenderWindow* window) {
 }
 
 void konfiguracjaPoziomowtxt(sf::Text* txt, int N, sf::Font* czcionka) {
+	//przypisanie cyferek przy wyborze levelu
 	for (int i = 0; i < N; i++) {
-		txt[i].setPosition(sf::Vector2f(120 + i * 75, 300));
+		txt[i].setPosition(sf::Vector2f(120 + i * 75, 350));
 		txt[i].setCharacterSize(30);
 		txt[i].setFillColor(sf::Color::White);
 		txt[i].setString(std::to_string(10 + i));
 		txt[i].setFont(*czcionka);
+		txt[i].setOutlineThickness(1.5);
+		txt[i].setOutlineColor(sf::Color(77, 5, 5));
 	}
 }
 
@@ -1155,8 +1254,11 @@ void Menu::init() {
 	sf::Texture* tekstura;
 	tekstura = new sf::Texture;
 
+	this->txt_rusty->loadFromFile("rusty.jpg");
+
 	glowne_tlo->setSize(sf::Vector2f(1024, 768));
-	glowne_tlo->setFillColor(sf::Color::Black);
+	glowne_tlo->setTexture(this->txt_rusty);
+	glowne_tlo->setFillColor(sf::Color(18, 18, 18));
 
 	tekstura->loadFromFile("player.png");
 	if (!tekstura->loadFromFile("player.png")) {
@@ -1174,59 +1276,77 @@ void Menu::init() {
 }
 
 void Menu::ustawTeksty() {
+	//design tekstów
 	czcionka->loadFromFile("ARIBL0.ttf");
 
-	tytul->setPosition(sf::Vector2f(235, 10));
+	tytul->setPosition(sf::Vector2f(180, 10));
 	tytul->setString("PACKMAN MASTERS");
-	tytul->setCharacterSize(50);
-	tytul->setFillColor(sf::Color::Magenta);
+	tytul->setCharacterSize(60);
+	tytul->setFillColor(sf::Color(166, 25, 25));
+	tytul->setStyle(sf::Text::Bold);
+	tytul->setOutlineThickness(1.5);
+	tytul->setOutlineColor(sf::Color(250, 230, 230));
 	tytul->setFont(*czcionka);
 
 	nowa_gra->setPosition(sf::Vector2f(100, 200));
 	nowa_gra->setString("NOWA GRA");
 	nowa_gra->setCharacterSize(40);
 	nowa_gra->setFillColor(sf::Color::White);
+	nowa_gra->setOutlineThickness(1.5);
+	nowa_gra->setOutlineColor(sf::Color(77,5,5));
 	nowa_gra->setFont(*czcionka);
 
 	wczytaj_gre->setPosition(sf::Vector2f(100, nowa_gra->getPosition().y + 90));
 	wczytaj_gre->setString("WCZYTAJ GRE");
 	wczytaj_gre->setCharacterSize(40);
 	wczytaj_gre->setFillColor(sf::Color::White);
+	wczytaj_gre->setOutlineThickness(1.5);
+	wczytaj_gre->setOutlineColor(sf::Color(77, 5, 5));
 	wczytaj_gre->setFont(*czcionka);
 
 	instrukcja->setPosition(sf::Vector2f(100, wczytaj_gre->getPosition().y + 90));
 	instrukcja->setString("INSTRUKCJA GRY");
 	instrukcja->setCharacterSize(40);
 	instrukcja->setFillColor(sf::Color::White);
+	instrukcja->setOutlineThickness(1.5);
+	instrukcja->setOutlineColor(sf::Color(77, 5, 5));
 	instrukcja->setFont(*czcionka);
 
 	wyjscie->setPosition(sf::Vector2f(100, instrukcja->getPosition().y + 90));
 	wyjscie->setString("WYJDZ Z GRY");
 	wyjscie->setCharacterSize(40);
 	wyjscie->setFillColor(sf::Color::White);
+	wyjscie->setOutlineThickness(1.5);
+	wyjscie->setOutlineColor(sf::Color(77, 5, 5));
 	wyjscie->setFont(*czcionka);
 
 	kontrola->setPosition(sf::Vector2f(50, 740));
 	kontrola->setString("WCISNIJ CTRL ABY PRZEJSC DALEJ");
 	kontrola->setCharacterSize(20);
 	kontrola->setFillColor(sf::Color::White);
+	kontrola->setOutlineThickness(1.5);
+	kontrola->setOutlineColor(sf::Color(77, 5, 5));
 	kontrola->setFont(*czcionka);
 
 	powrot->setPosition(sf::Vector2f(640, 740));
 	powrot->setString("WCISNIJ ALT ABY SIE COFNAC");
 	powrot->setCharacterSize(20);
 	powrot->setFillColor(sf::Color::White);
+	powrot->setOutlineThickness(1.5);
+	powrot->setOutlineColor(sf::Color(77, 5, 5));
 	powrot->setFont(*czcionka);
 
 	pomocf1->setPosition(sf::Vector2f(50, 740));
 	pomocf1->setString("WCISNIJ F1 ABY WYSWIETLIC POMOC");
 	pomocf1->setCharacterSize(20);
 	pomocf1->setFillColor(sf::Color::White);
+	pomocf1->setOutlineThickness(1.5);
+	pomocf1->setOutlineColor(sf::Color(77, 5, 5));
 	pomocf1->setFont(*czcionka);
 }
 
-void Menu::dzialanie(sf::Event event, sf::Clock* zegar,sf::Clock*zegar2) {
-	
+void Menu::dzialanie(sf::Event event, sf::Clock* zegar,sf::Clock*zegar2,sf::Clock*zegarAlert) {
+	//dzia³anie w zale¿noœci od aktualnego dzia³ania
 	switch (this->akt_dzialanie) {
 	case 0:
 		this->menu_main(event, zegar);
@@ -1244,13 +1364,13 @@ void Menu::dzialanie(sf::Event event, sf::Clock* zegar,sf::Clock*zegar2) {
 		this->okno->close();
 		break;
 	case 5:
-		this->gra(event, zegar, zegar2);
+		this->gra(event, zegar, zegar2,zegarAlert);
 		break;
 	case 6:
 		this->GameOver(event,zegar);
 		break;
 	case 7:
-		this->czyWyjsc(event, zegar);
+		this->czyWyjsc(event, zegar, zegar2);
 		break;
 	case 8:
 		this->Zapis(zegar);
@@ -1276,8 +1396,11 @@ void Menu::menu_main(sf::Event event, sf::Clock* zegar) {
 	rank->setCharacterSize(20);
 	rank->setString("WCISNIJ F3 ABY ZOBACZYC RANKING");
 	rank->setPosition(sf::Vector2f(550, 740));
+	rank->setOutlineColor(sf::Color(77, 5, 5));
+	rank->setOutlineThickness(1.5);
 	rank->setFont(*czcionka);
 
+	//wyœwietlenie
 	okno->draw(*glowne_tlo);
 	okno->draw(*glowny_bohater);
 	okno->draw(*tytul);
@@ -1287,6 +1410,7 @@ void Menu::menu_main(sf::Event event, sf::Clock* zegar) {
 	okno->draw(*wyjscie);
 	okno->draw(*kontrola);
 	okno->draw(*rank);
+	//utworzenie tablicy tekstów wyboru
 	sf::Text* teksty;
 	teksty = new sf::Text[4];
 
@@ -1365,6 +1489,7 @@ void Menu::menu_main(sf::Event event, sf::Clock* zegar) {
 }
 
 void Menu::nowagra(sf::Event event, sf::Clock* zegar) {
+	//ekran nowej gry
 	okno->draw(*glowne_tlo);
 	okno->draw(*tytul);
 	okno->draw(*glowny_bohater);
@@ -1374,6 +1499,13 @@ void Menu::nowagra(sf::Event event, sf::Clock* zegar) {
 	sf::Text* poziomy;
 	poziomy = new sf::Text[11];
 	konfiguracjaPoziomowtxt(poziomy, 11, this->czcionka);
+
+	sf::Texture* txt_lab = new sf::Texture;
+	txt_lab->loadFromFile("labirynt.png");
+	sf::RectangleShape* lab = new sf::RectangleShape(sf::Vector2f(220, 220));
+	lab->setTexture(txt_lab);
+	lab->setPosition(sf::Vector2f(160, 460));
+	okno->draw(*lab);
 	
 	sf::Text* wybor = new sf::Text;
 	wybor->setCharacterSize(35);
@@ -1381,8 +1513,11 @@ void Menu::nowagra(sf::Event event, sf::Clock* zegar) {
 	wybor->setFillColor(sf::Color(60, 10, 255));
 	wybor->setPosition(sf::Vector2f(195, 250));
 	wybor->setString("WYBIERZ ROZMIAR LABIRYNTU");
+	wybor->setOutlineThickness(1);
+	wybor->setOutlineColor(sf::Color::White);
 	okno->draw(*wybor);
 
+	//x - œledzenie aktualnie wybranego tekstu, y - œledzenie poprzednio wybranego tekstu
 	if (zegar->getElapsedTime().asSeconds() > 0.3) {
 		if (event.type == sf::Event::KeyPressed) {
 			if (event.key.code == sf::Keyboard::Right) {
@@ -1409,7 +1544,7 @@ void Menu::nowagra(sf::Event event, sf::Clock* zegar) {
 	}
 
 	
-
+	// w zale¿noœci od wybranego tekstu zmieñ rozmiar i kolor
 	poziomy[x].setCharacterSize(35);
 	poziomy[x].setFillColor(sf::Color(sf::Color::Red));
 	poziomy[y].setCharacterSize(30);
@@ -1418,6 +1553,7 @@ void Menu::nowagra(sf::Event event, sf::Clock* zegar) {
 	if (zegar->getElapsedTime().asSeconds() > 0.5) {
 		if (event.type == sf::Event::KeyPressed) {
 			if (event.key.code == sf::Keyboard::RControl || event.key.code == sf::Keyboard::LControl) {
+				//+10 aby rozmiar labiryntu wybraæ, zmiana akt dzia³ania na grê, tworzenie obiektów, neutralizacja x,y
 				this->x += 10;
 				this->akt_dzialanie = 5;
 				
@@ -1439,10 +1575,18 @@ void Menu::nowagra(sf::Event event, sf::Clock* zegar) {
 
 	delete[] poziomy;
 	delete wybor;
+	delete lab;
+	delete txt_lab;
 }
 
 void Menu::utworz_obiekty() {
-	
+	delete this->mapa;
+	delete this->player;
+	delete this->interfejs;
+	delete this->punkty;
+	delete this->przeciwnicy;
+
+
 	Plansza* mapa = new Plansza(this->x, sf::Vector2f(1024, 768));
 	mapa->losuj_labirynt();
 	Gracz* player = new Gracz(this->x, mapa->getPolaKrawedzie());
@@ -1461,10 +1605,11 @@ void Menu::utworz_obiekty() {
 	this->interfejs = interfejs;
 	this->punkty = pkt;
 	this->przeciwnicy = oponent;
+
 }
 
-void Menu::gra(sf::Event event, sf::Clock* zegar, sf::Clock* zegar2) {
-
+void Menu::gra(sf::Event event, sf::Clock* zegar, sf::Clock* zegar2,sf::Clock*zegarAlert) {
+	//funcje funkcjonalne gry
 	
 	interfejs->rysuj(this->okno);
 	interfejs->in_staty(this->player->getstaty());
@@ -1472,17 +1617,18 @@ void Menu::gra(sf::Event event, sf::Clock* zegar, sf::Clock* zegar2) {
 	punkty->rysuj(this->okno);
 	punkty->czyUstawZnowu();
 	przeciwnicy->rysuj(this->okno);
-	przeciwnicy->przesun(zegar2,player->getstaty());
+	przeciwnicy->przesun(zegar2,player->getstaty(),this->player->getPozycjaGracza());
 	przeciwnicy->kolizjePkt(punkty->getSprites());
 	player->rysuj(this->okno);
 	player->ustawtxt(event);
 	player->przesun(event, zegar);
 	player->supermoc(event, zegar);
-	player->kolizje(punkty->getSprites(),przeciwnicy->getPrzeciwnicy());
+	player->kolizje(punkty->getSprites(), przeciwnicy->getPrzeciwnicy(), this->okno, zegarAlert);
 	this->czyGameOver(player->getstaty());
 	this->okno->draw(*this->powrot);
 	this->okno->draw(*this->pomocf1);
 	
+	//klawisze
 	if (zegar->getElapsedTime().asSeconds() > 0.2) {
 		if (event.type == sf::Event::KeyPressed) {
 			if (event.key.code == sf::Keyboard::LAlt || event.key.code == sf::Keyboard::RAlt) {
@@ -1506,6 +1652,8 @@ void Menu::ekranInstrukcji(sf::Event event) {
 	sf::RectangleShape* tlo = new sf::RectangleShape;
 	tlo->setSize(sf::Vector2f(1024,768));
 	tlo->setFillColor(sf::Color(50, 0, 0));
+	tlo->setTexture(this->txt_rusty);
+	
 
 	sf::Text* opis = new sf::Text;
 	opis->setFont(*this->czcionka);
@@ -1534,7 +1682,7 @@ void Menu::ekranInstrukcji(sf::Event event) {
 }
 
 void Menu::czyGameOver(statystyki* staty) {
-	if (staty->zycie == 0) {
+	if (staty->zycie <= 0) {
 		this->akt_dzialanie = 6;
 	}
 }
@@ -1544,7 +1692,9 @@ void Menu::GameOver(sf::Event event,sf::Clock*zegar) {
 	ranking->setCharacterSize(20);
 	ranking->setFont(*czcionka);
 	ranking->setString("WCISNIJ F3 ABY ZAPISAC SWOJ WYNIK");
-	ranking->setPosition(sf::Vector2f(550,740));
+	ranking->setPosition(sf::Vector2f(550, 740));
+	ranking->setOutlineColor(sf::Color(77, 5, 5));
+	ranking->setOutlineThickness(1.5);
 
 	this->interfejs->in_staty(this->player->getstaty());
 	this->interfejs->rysuj(this->okno);
@@ -1561,17 +1711,22 @@ void Menu::GameOver(sf::Event event,sf::Clock*zegar) {
 			this->akt_dzialanie = 0;
 			zegar->restart();
 		}
+		//JEZELI MA BYC ZAPISANE
 		if (event.key.code == sf::Keyboard::F3) {
 			sf::Text* wpisz = new sf::Text;
-			wpisz->setCharacterSize(30);
+			wpisz->setCharacterSize(40);
 			wpisz->setFont(*czcionka);
 			wpisz->setString("WPISZ NAZWE GRACZA W KONSOLI");
-			wpisz->setPosition(sf::Vector2f(200, 240));
+			wpisz->setPosition(sf::Vector2f(130, 100));
 			wpisz->setFillColor(sf::Color(100, 255, 255));
+			wpisz->setOutlineColor(sf::Color::White);
+			wpisz->setOutlineThickness(1);
+
 			this->okno->draw(*wpisz);
 			this->okno->display();
 
 			char* nazwa = new char[30];
+			std::cout << "Wpisz nazwe gracza: ";
 			fgets(nazwa, 30, stdin);
 			//USUNIÊCIE "\n"
 			int ts = 0;
@@ -1580,7 +1735,7 @@ void Menu::GameOver(sf::Event event,sf::Clock*zegar) {
 			}
 			nazwa[ts] = '\0';
 
-			int points = this->player->getstaty()->punkty;
+			int points = (6 * this->player->getstaty()->punkty) / (sqrt(this->mapa->getrozmiar()));
 			int ile = 0;
 			
 
@@ -1718,7 +1873,7 @@ void Menu::GameOver(sf::Event event,sf::Clock*zegar) {
 			
 			
 			this->akt_dzialanie = 0;
-			
+			this->flaga_ranking = 0;
 			
 			delete[] nazwa;
 			delete wpisz;
@@ -1727,10 +1882,12 @@ void Menu::GameOver(sf::Event event,sf::Clock*zegar) {
 
 	sf::Text* G_O = new sf::Text;
 	G_O->setString("PRZEGRALES!");
-	G_O->setCharacterSize(50);
+	G_O->setCharacterSize(70);
 	G_O->setFillColor(sf::Color::Red);
+	G_O->setOutlineColor(sf::Color::White);
+	G_O->setOutlineThickness(1);
 	G_O->setFont(*this->czcionka);
-	G_O->setPosition(300, 300);
+	G_O->setPosition(260, 300);
 
 	this->okno->draw(*G_O);
 	delete G_O;
@@ -1738,7 +1895,7 @@ void Menu::GameOver(sf::Event event,sf::Clock*zegar) {
 	
 }
 
-void Menu::czyWyjsc(sf::Event event, sf::Clock* zegar) {
+void Menu::czyWyjsc(sf::Event event, sf::Clock* zegar,sf::Clock*zegarEnemies) {
 	this->interfejs->in_staty(this->player->getstaty());
 	this->interfejs->rysuj(this->okno);
 	this->mapa->rysuj_labirynt(this->okno);
@@ -1748,11 +1905,15 @@ void Menu::czyWyjsc(sf::Event event, sf::Clock* zegar) {
 	this->okno->draw(*this->kontrola);
 
 	sf::Text* teksty = new sf::Text[4];
-	sf::RectangleShape* obwodka = new sf::RectangleShape(sf::Vector2f(230, 140));
+	sf::RectangleShape* obwodka = new sf::RectangleShape(sf::Vector2f(400, 260));
+	sf::Texture* txt_dark = new sf::Texture;
+	txt_dark->loadFromFile("dark.jpg");
 
 	for (int i = 0; i < 4; i++) {
 		teksty[i].setFont(*this->czcionka);
-		teksty[i].setCharacterSize(20);
+		teksty[i].setCharacterSize(35);
+		teksty[i].setOutlineThickness(1.5);
+		teksty[i].setOutlineColor(sf::Color(77, 5, 5));
 	}
 	
 	teksty[0].setString("Wroc do gry");
@@ -1760,20 +1921,21 @@ void Menu::czyWyjsc(sf::Event event, sf::Clock* zegar) {
 	teksty[2].setString("Zapisz i wyjdz");
 	teksty[3].setString("Wyjdz do menu");
 
-	teksty[0].setPosition(sf::Vector2f(300, 300));
-	teksty[1].setPosition(sf::Vector2f(300, 325));
-	teksty[2].setPosition(sf::Vector2f(300, 350));
-	teksty[3].setPosition(sf::Vector2f(300, 375));
+	teksty[0].setPosition(sf::Vector2f(340, 310));
+	teksty[1].setPosition(sf::Vector2f(340, 360));
+	teksty[2].setPosition(sf::Vector2f(340, 410));
+	teksty[3].setPosition(sf::Vector2f(340, 460));
 
-	obwodka->setFillColor(sf::Color::Black);
-	obwodka->setPosition(sf::Vector2f(290, 290));
+	obwodka->setTexture(txt_dark);
+	obwodka->setFillColor(sf::Color(90, 99, 99));
+	obwodka->setPosition(sf::Vector2f(310, 290));
 	obwodka->setOutlineThickness(3);
 	obwodka->setOutlineColor(sf::Color::White);
 
 
-	teksty[x].setCharacterSize(25);
+	teksty[x].setCharacterSize(40);
 	teksty[x].setFillColor(sf::Color(255, 179, 179));
-	teksty[y].setCharacterSize(20);
+	teksty[y].setCharacterSize(35);
 	teksty[y].setFillColor(sf::Color::White);
 
 
@@ -1839,9 +2001,11 @@ void Menu::czyWyjsc(sf::Event event, sf::Clock* zegar) {
 		this->okno->draw(teksty[i]);
 	}
 	
+	zegarEnemies->restart();
 
 	delete[] teksty;
 	delete obwodka;
+	delete txt_dark;
 }
 
 void Menu::Zapis(sf::Clock*zegar) {
@@ -2117,7 +2281,12 @@ void Menu::wczytajGre() {
 		fclose(fp);
 		
 		//std::cout << " " << rozm << " " << pola_k[0][0][1] << " " << pola_k[0][0][2] << " " << lastprzec[0] << " " << lastprzec[1] << " " << lastprzec[2] << " pozycje " << pozprzec_y[1] << " " << pozpkt_x[5] << " " << pozpkt_y[2] << " pozycje gracz " << pozgracz_x << " " << pozgracz_y << " " << wysw_pkt[3] << " staty " << moc << " " << hp << " " << pts;
-		
+		//USUNIECIE POPRZEDNICH OBIEKTOW
+		delete this->mapa;
+		delete this->player;
+		delete this->przeciwnicy;
+		delete this->interfejs;
+		delete this->punkty;
 		//UTWORZENIE OBIEKTÓW NA PODSTAWIE DANYCH OCZYTANYCH
 		Plansza* map = new Plansza(rozm, sf::Vector2f(1024, 768));
 		map->losuj_labirynt();
@@ -2145,7 +2314,7 @@ void Menu::wczytajGre() {
 		przec->setZapis(lastprzec, pozprzec_x, pozprzec_y);
 		this->przeciwnicy = przec;
 		
-		//NADPISANIE OBIEKTÓW I WEJŒCIE DO PRZEBIEGU GRY
+		//ZAPISANIE OBIEKTÓW I WEJŒCIE DO PRZEBIEGU GRY
 		
 		
 	}
@@ -2157,6 +2326,7 @@ void Menu::instrukcjaF1(sf::Event event) {
 	sf::RectangleShape* tlo = new sf::RectangleShape;
 	tlo->setSize(sf::Vector2f(1024, 768));
 	tlo->setFillColor(sf::Color(50, 0, 0));
+	tlo->setTexture(this->txt_rusty);
 
 	sf::Text* opis = new sf::Text;
 	opis->setFont(*this->czcionka);
@@ -2188,12 +2358,15 @@ void Menu::ranking(sf::Event event) {
 	sf::RectangleShape* tlo = new sf::RectangleShape;
 	tlo->setSize(sf::Vector2f(1024, 768));
 	tlo->setFillColor(sf::Color(50, 0, 0));
+	tlo->setTexture(this->txt_rusty);
 	std::string spacja = " ";
 	std::string pts = "pkt";
 	sf::Text* ranktekst = new sf::Text;
 	ranktekst->setString("RANKING");
 	ranktekst->setPosition(sf::Vector2f(300, 200));
 	ranktekst->setCharacterSize(60);
+	ranktekst->setOutlineThickness(1.5);
+	ranktekst->setOutlineColor(sf::Color(77, 5, 5));
 	ranktekst->setFont(*czcionka);
 	
 
@@ -2202,74 +2375,84 @@ void Menu::ranking(sf::Event event) {
 	this->okno->draw(*ranktekst);
 	this->okno->draw(*glowny_bohater);
 	this->okno->draw(*powrot);
-	
 
-	FILE* fp;
-	fp = fopen("ranking.txt", "r+");
-	int ile = 0;
-	if (fp != NULL) {
-		fread(&ile, sizeof(int), 1, fp);
-	}
-	if (ile > 0) {
-		this->rekordy = new sf::Text[ile];
+	delete ranktekst;
+	delete tlo;
 
-		char** nicki = new char* [ile];
-		for (int i = 0; i < ile; i++) {
-			nicki[i] = new char[30];
+	if (this->flaga_ranking == 0) {
+		FILE* fp;
+		fp = fopen("ranking.txt", "r+");
+		
+		if (fp != NULL) {
+			fread(&this->ile_ranking, sizeof(int), 1, fp);
 		}
-		int* pkt_nicki = new int[ile];
+		if (this->ile_ranking > 0 && fp != NULL) {
+			sf::Text* lista = new sf::Text[this->ile_ranking];
 
-		for (int i = 0; i < ile; i++) {
-			fread(nicki[i], 30 * sizeof(char), 1, fp);
-			fread(&pkt_nicki[i], sizeof(int), 1, fp);
-		}
-		fclose(fp);
+			char** nicki = new char* [this->ile_ranking];
+			for (int i = 0; i < this->ile_ranking; i++) {
+				nicki[i] = new char[30];
+			}
+			int* pkt_nicki = new int[this->ile_ranking];
 
-		for (int i = 0; i < ile; i++) {
-			for (int j = 0; j < ile - 1; j++) {
-				if (pkt_nicki[j] < pkt_nicki[j + 1]) {
-					std::swap(pkt_nicki[j], pkt_nicki[j + 1]);
-					std::swap(nicki[j], nicki[j + 1]);
+			for (int i = 0; i < this->ile_ranking; i++) {
+				fread(nicki[i], 30 * sizeof(char), 1, fp);
+				fread(&pkt_nicki[i], sizeof(int), 1, fp);
+			}
+			fclose(fp);
+
+			for (int i = 0; i < this->ile_ranking; i++) {
+				for (int j = 0; j < this->ile_ranking - 1; j++) {
+					if (pkt_nicki[j] < pkt_nicki[j + 1]) {
+						std::swap(pkt_nicki[j], pkt_nicki[j + 1]);
+						std::swap(nicki[j], nicki[j + 1]);
+					}
 				}
 			}
+
+			for (int i = 0; i < this->ile_ranking; i++) {
+				int k = pkt_nicki[i];
+				lista[i].setString(std::to_string(i + 1) + spacja + nicki[i] + spacja + std::to_string(k) + spacja + pts);
+				lista[i].setPosition(sf::Vector2f(250, 300 + 80 * i));
+				lista[i].setFont(*this->czcionka);
+				lista[i].setCharacterSize(50);
+				//this->okno->draw(lista[i]);
+			}
+			this->rekordy = lista;
+			
+			delete[] nicki;
+			delete[] pkt_nicki;
+			this->flaga_ranking = 1;
 		}
-
-		for (int i = 0; i < ile; i++) {
-			int k = pkt_nicki[i];
-			this->rekordy[i].setString(std::to_string(i+1) + spacja + nicki[i] + spacja + std::to_string(k) + spacja + pts);
-			this->rekordy[i].setPosition(sf::Vector2f(250, 300 + 80 * i));
-			this->rekordy[i].setFont(*this->czcionka);
-			this->rekordy[i].setCharacterSize(50);
-			this->okno->draw(rekordy[i]);
+		else {
+			sf::Text* zero = new sf::Text;
+			zero->setString("NIE MA JESZCZE ZAPISANYCH WYNIKOW");
+			zero->setCharacterSize(30);
+			zero->setPosition(sf::Vector2f(160, 400));
+			zero->setFont(*this->czcionka);
+			this->okno->draw(*zero);
+			delete zero;
 		}
-
-
-		delete[] nicki;
-		delete[] pkt_nicki;
+		
 	}
-	else {
-		sf::Text* zero = new sf::Text;
-		zero->setString("NIE MA JESZCZE ZAPISANYCH WYNIKOW");
-		zero->setCharacterSize(30);
-		zero->setPosition(sf::Vector2f(160, 400));
-		zero->setFont(*this->czcionka);
-
-		this->okno->draw(*zero);
-		delete zero;
-	}
-
+	
 	if (event.type == sf::Event::KeyPressed) {
 		if (event.key.code == sf::Keyboard::RAlt || event.key.code == sf::Keyboard::LAlt) {
 			this->akt_dzialanie = 0;
-			
 		}
 	}
 
+	if (this->flaga_ranking == 1) {
+		for (int i = 0; i < this->ile_ranking; i++) {
+			this->okno->draw(this->rekordy[i]);
+		}
+	}
 	
-	delete ranktekst;
-	delete tlo;
-	delete[] this->rekordy;
+	
+	
 }
+
+
 
 int main() {
 	srand(time(NULL));
@@ -2277,9 +2460,9 @@ int main() {
 	sf::RenderWindow* win;
 	win = &window;
 	sf::Vector2f rozmokna(1024,768);
-	sf::Clock *zegar;
-	zegar = new sf::Clock;
+	sf::Clock* zegar = new sf::Clock;
 	sf::Clock* zegar2 = new sf::Clock;
+	sf::Clock* zegarAlert = new sf::Clock;
 	
 
 	Menu menu(win);
@@ -2300,9 +2483,9 @@ int main() {
 		window.clear();
 		
 
-		menu.dzialanie(event,zegar,zegar2);
+		menu.dzialanie(event,zegar,zegar2,zegarAlert);
 		
-
+		
 		window.display();
 	}
 	return 0;
